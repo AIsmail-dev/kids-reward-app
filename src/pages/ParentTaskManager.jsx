@@ -5,7 +5,9 @@ export default function ParentTaskManager() {
 
     const [title, setTitle] = useState("")
     const [reward, setReward] = useState("")
-    const [repeat, setRepeat] = useState("daily")
+    const [recurrence, setRecurrence] = useState("daily")
+    const [taskType, setTaskType] = useState("prayer")
+
     const [kid, setKid] = useState("")
     const [kids, setKids] = useState([])
 
@@ -35,7 +37,8 @@ export default function ParentTaskManager() {
             .insert({
                 title,
                 reward: parseInt(reward),
-                recurrence: repeat,
+                recurrence: recurrence,
+                task_type: taskType,
                 assigned_kid: kid,
                 active: true
             })
@@ -76,8 +79,20 @@ export default function ParentTaskManager() {
             <select
                 className="user-select"
                 style={{ width: '100%', marginBottom: '15px' }}
-                value={repeat}
-                onChange={e => setRepeat(e.target.value)}
+                value={taskType}
+                onChange={e => setTaskType(e.target.value)}
+            >
+                <option value="prayer">Prayer</option>
+                <option value="chore">Chore</option>
+                <option value="homework">Homework</option>
+                <option value="general">General Routine</option>
+            </select>
+
+            <select
+                className="user-select"
+                style={{ width: '100%', marginBottom: '15px' }}
+                value={recurrence}
+                onChange={e => setRecurrence(e.target.value)}
             >
                 <option value="daily">Every Day</option>
                 <option value="weekly">Every Week</option>
@@ -104,4 +119,3 @@ export default function ParentTaskManager() {
         </div>
     )
 }
-
