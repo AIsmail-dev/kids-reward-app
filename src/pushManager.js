@@ -27,7 +27,7 @@ export async function requestPushPermission(userId) {
 
     if (Notification.permission === 'granted') {
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js');
+            const registration = await navigator.serviceWorker.register('/push-sw.js');
             await navigator.serviceWorker.ready;
             let subscription = await registration.pushManager.getSubscription();
 
