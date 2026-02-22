@@ -1,108 +1,166 @@
 import React, { useEffect, useState } from "react";
+import ParentTaskManager from "./ParentTaskManager";
 import { supabase } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
 
-export default function ParentDashboard(){
+export default function ParentDashboard() {
+    const [completed, setCompleted] = useState([]);
+    const [withdrawals, setWithdrawals] = useState([]);
+    const [activeTab, setActiveTab] = useState("approvals");
+    const nav = useNavigate();
 
-const [completed,setCompleted] = useState([])
-const [withdrawals,setWithdrawals] = useState([])
+    useEffect(() => {
+        fetchCompletedTasks();
+        fetchWithdrawals();
+    }, []);
 
-useEffect(()=>{
-fetchCompletedTasks()
-fetchWithdrawals()
-},[])
+    async function fetchCompletedTasks() {
+        const { data } = await supabase
+            .from('task_occurrences')
+            .select(`
+        id,
+        kid_id,
+        tasks:task_id (
+          title,
+          reward
+        )
+      `)
+            .in('status', ['completed', 'waiting_parent']); // Support both statuses in case of old data
 
-async function fetchCompletedTasks(){
+        setCompleted(data);
+    }
 
-const {data} = await supabase
-.from('task_occurrences')
-.select(`
-id,
-kid_id,
-tasks:task_id (
-title,
-reward
-)
-`)
-.eq('status','completed')
+    async function fetchWithdrawals() {
+        const { data } = await supabase
+            .from('withdrawals')
+            .select('*')
+            .eq('status', 'pending');
 
-setCompleted(data)
-}
+        setWithdrawals(data);
+    }
 
-async function fetchWithdrawals(){
+    async function approveTask(task) {
+        await supabase
+            .from('wallet_transactions')
+            .insert({
+                kid_id: task.kid_id,
+                amount: task.tasks.reward,
+                type: 'reward'
+            });
 
-const {data} = await supabase
-.from('withdrawals')
-.select('*')
-.eq('status','pending')
+        await supabase
+            .from('task_occurrences')
+            .update({ status: 'approved' })
+            .eq('id', task.id);
 
-setWithdrawals(data)
-}
+        fetchCompletedTasks();
+    }
 
-async function approveTask(task){
+    async function approveWithdrawal(w) {
+        await supabase
+            .from('wallet_transactions')
+            .insert({
+                kid_id: w.kid_id,
+                amount: -w.amount,
+                type: 'withdraw'
+            });
 
-await supabase
-.from('wallet_transactions')
-.insert({
-kid_id:task.kid_id,
-amount:task.tasks.reward,
-type:'reward'
-})
+        await supabase
+            .from('withdrawals')
+            .update({ status: 'approved' })
+            .eq('id', w.id);
 
-await supabase
-.from('task_occurrences')
-.update({status:'approved'})
-.eq('id',task.id)
+        fetchWithdrawals();
+    }
 
-fetchCompletedTasks()
-}
+    return (
+        <div className="app-wrapper">
+            <div className="content-area">
+                <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem" }}>
+                    Parent Dashboard 👨‍👩‍👧‍👦
+                </h1>
 
-async function approveWithdrawal(w){
+                {activeTab === "approvals" && (
+                    <div>
+                        <h2 style={{ marginTop: "20px" }}>Needs Approval ✅</h2>
 
-await supabase
-.from('wallet_transactions')
-.insert({
-kid_id:w.kid_id,
-amount:-w.amount,
-type:'withdraw'
-})
+                        {completed?.length === 0 && (
+                            <p style={{ textAlign: "center", color: "#666" }}>No tasks pending approval.</p>
+                        )}
 
-await supabase
-.from('withdrawals')
-.update({status:'approved'})
-.eq('id',w.id)
+                        {completed?.map(t => (
+                            <div key={t.id} className="card">
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1 }}>{t.tasks?.title}</h3>
+                                    <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
+                                        ${t.tasks?.reward}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: "12px" }}>
+                                    <button className="button button-secondary" onClick={() => approveTask(t)}>
+                                        Approve Task
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
 
-fetchWithdrawals()
-}
+                        <h2 style={{ marginTop: "30px" }}>Withdrawal Requests 💵</h2>
 
-return(
-<div>
+                        {withdrawals?.length === 0 && (
+                            <p style={{ textAlign: "center", color: "#666" }}>No withdrawal requests right now.</p>
+                        )}
 
-<h2>Completed Tasks</h2>
+                        {withdrawals?.map(w => (
+                            <div key={w.id} className="card">
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1, textTransform: "capitalize" }}>{w.method}</h3>
+                                    <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold", fontSize: "1.2rem" }}>
+                                        ${w.amount}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: "12px" }}>
+                                    <button className="button button-info" onClick={() => approveWithdrawal(w)}>
+                                        Approve Payout
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
-{completed?.map(t=>(
-<div key={t.id}>
-<p>{t.tasks?.title}</p>
-<p>${t.tasks?.reward}</p>
+                {activeTab === "manage" && (
+                    <div style={{ marginTop: "20px" }}>
+                        <ParentTaskManager />
+                    </div>
+                )}
+            </div>
 
-<button onClick={()=>approveTask(t)}>
-Approve
-</button>
-</div>
-))}
-
-<h2>Withdrawal Requests</h2>
-
-{withdrawals?.map(w=>(
-<div key={w.id}>
-<p>${w.amount}</p>
-<p>{w.method}</p>
-
-<button onClick={()=>approveWithdrawal(w)}>
-Approve
-</button>
-</div>
-))}
-
-</div>
-)
+            <div className="bottom-nav">
+                <div
+                    className={`nav-item ${activeTab === 'approvals' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('approvals')}
+                >
+                    <span className="nav-icon">✅</span>
+                    <span>Approvals</span>
+                </div>
+                <div
+                    className={`nav-item ${activeTab === 'manage' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('manage')}
+                >
+                    <span className="nav-icon">⚙️</span>
+                    <span>Manage</span>
+                </div>
+                <div
+                    className="nav-item"
+                    onClick={() => {
+                        localStorage.removeItem("user");
+                        nav("/");
+                    }}
+                >
+                    <span className="nav-icon">🚪</span>
+                    <span>Logout</span>
+                </div>
+            </div>
+        </div>
+    );
 }

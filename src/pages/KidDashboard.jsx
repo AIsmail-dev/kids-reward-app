@@ -1,111 +1,206 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
 
-export default function KidDashboard(){
+export default function KidDashboard() {
+  const [tasks, setTasks] = useState([]);
+  const [balance, setBalance] = useState(0);
+  const [activeTab, setActiveTab] = useState("tasks");
 
-const [tasks,setTasks] = useState([])
-const [balance,setBalance] = useState(0)
+  const nav = useNavigate();
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const kidId = user?.id;
 
-const kidId = "11111111-1111-1111-1111-111111111111"
+  useEffect(() => {
+    if (!user) {
+      nav("/");
+      return;
+    }
+    fetchTasks();
+    fetchBalance();
+  }, []);
 
-useEffect(()=>{
-fetchTasks()
-fetchBalance()
-},[])
+  async function fetchTasks() {
+    const today = new Date().toISOString().split('T')[0];
 
-async function fetchTasks(){
+    const { data, error } = await supabase
+      .from('task_occurrences')
+      .select(`
+        id,
+        status,
+        tasks:task_id (
+          title,
+          reward
+        )
+      `)
+      .eq('kid_id', kidId)
+      .eq('scheduled_date', today);
 
-const today = new Date().toISOString().split('T')[0]
+    if (error) console.error("Error fetching tasks:", error);
+    else setTasks(data || []);
+  }
 
-const {data} = await supabase
-.from('task_occurrences')
-.select(`
-id,
-status,
-tasks:task_id (
-title,
-reward
-)
-`)
-.eq('kid_id',kidId)
-.eq('scheduled_date',today)
+  async function fetchBalance() {
+    const { data, error } = await supabase
+      .from('wallet_transactions')
+      .select('amount')
+      .eq('kid_id', kidId);
 
-setTasks(data)
-}
+    if (error) console.error("Error fetching balance:", error);
+    else {
+      let total = 0;
+      data?.forEach(t => total += t.amount);
+      setBalance(total);
+    }
+  }
 
-async function fetchBalance(){
+  async function requestApproval(id) {
+    const { error } = await supabase
+      .from('task_occurrences')
+      .update({ status: 'waiting_parent' })
+      .eq('id', id);
 
-const {data} = await supabase
-.from('wallet_transactions')
-.select('amount')
-.eq('kid_id',kidId)
+    if (error) alert("Oops! Something went wrong.");
+    else {
+      alert("Sent to parent for approval! 🚀");
+      fetchTasks();
+    }
+  }
 
-let total = 0
-data?.forEach(t => total += t.amount)
+  async function requestWithdrawal(method) {
+    if (balance <= 0) {
+      alert("You need more points to withdraw! Keep completing tasks!");
+      return;
+    }
 
-setBalance(total)
-}
+    const amount = prompt(`How much would you like to withdraw? (Max: $${balance})`);
+    if (!amount || isNaN(amount) || parseInt(amount) <= 0) return;
 
-async function completeTask(id){
+    if (parseInt(amount) > balance) {
+      alert("You don't have enough balance for that!");
+      return;
+    }
 
-await supabase
-.from('task_occurrences')
-.update({status:'completed'})
-.eq('id',id)
+    const { error } = await supabase
+      .from('withdrawals')
+      .insert({
+        kid_id: kidId,
+        amount: parseInt(amount),
+        method: method
+      });
 
-fetchTasks()
-fetchBalance()
-}
-async function requestWithdrawal(method){
+    if (error) alert("Oops! Something went wrong.");
+    else alert("Withdrawal request sent! 🎉");
+  }
 
-const amount = prompt("Enter amount")
+  return (
+    <div className="app-wrapper">
+      <div className="content-area">
+        <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem" }}>
+          Hi, {user?.name}! 👋
+        </h1>
 
-await supabase
-.from('withdrawals')
-.insert({
-kid_id:kidId,
-amount:parseInt(amount),
-method:method
-})
+        <div className="card balance-card">
+          <h2>Your Balance</h2>
+          <div className="balance-amount">${balance}</div>
+          <p style={{ color: "rgba(255,255,255,0.8)" }}>Awesome job! Keep it up! ⭐</p>
+        </div>
 
-alert("Request Sent!")
-}
+        {activeTab === "tasks" && (
+          <div>
+            <h2 style={{ marginTop: "20px" }}>Today's Quests 🎯</h2>
 
+            {tasks.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: "40px 20px" }}>
+                <span className="nav-icon" style={{ fontSize: "3rem" }}>🌴</span>
+                <h3>No tasks right now!</h3>
+                <p>Time to relax or ask your parent for new quests.</p>
+              </div>
+            ) : (
+              tasks.map(t => (
+                <div key={t.id} className="card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.2rem", flex: 1 }}>{t.tasks?.title}</h3>
+                    <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
+                      ${t.tasks?.reward}
+                    </div>
+                  </div>
 
-return(
-<div>
+                  <div style={{ marginTop: "12px" }}>
+                    {t.status === "pending" && (
+                      <button className="button" onClick={() => requestApproval(t.id)}>
+                        I Did It! ✅
+                      </button>
+                    )}
 
-<h2>Today's Tasks</h2>
-<h3>Balance: ${balance}</h3>
-<h3>Withdraw</h3>
+                    {t.status === "waiting_parent" && (
+                      <div style={{ textAlign: "center", padding: "10px", background: "#FEF3C7", color: "#D97706", borderRadius: "12px", fontWeight: "bold" }}>
+                        Waiting for Parent 👀
+                      </div>
+                    )}
 
-<button onClick={()=>requestWithdrawal('cash')}>
-Cash
-</button>
+                    {t.status === "approved" && (
+                      <div style={{ textAlign: "center", padding: "10px", background: "#DCFCE7", color: "#16A34A", borderRadius: "12px", fontWeight: "bold" }}>
+                        Approved & Paid! 🎉
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
-<button onClick={()=>requestWithdrawal('school')}>
-School Card
-</button>
+        {activeTab === "rewards" && (
+          <div>
+            <h2 style={{ marginTop: "20px" }}>Claim Rewards 🎁</h2>
+            <div className="card">
+              <h3>Where do you want your money?</h3>
+              <p style={{ marginBottom: "16px" }}>Choose a withdrawal method and your parent will approve it.</p>
 
-<button onClick={()=>requestWithdrawal('bank')}>
-Bank Transfer
-</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <button className="button button-info" onClick={() => requestWithdrawal('cash')}>
+                  💵 Real Cash
+                </button>
+                <button className="button button-secondary" onClick={() => requestWithdrawal('school')}>
+                  🎒 School Card
+                </button>
+                <button className="button" style={{ background: "#9C27B0" }} onClick={() => requestWithdrawal('bank')}>
+                  🏦 Bank Transfer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-
-{tasks?.map(t=>(
-<div key={t.id}>
-<p>{t.tasks?.title}</p>
-<p>${t.tasks?.reward}</p>
-
-{t.status === 'pending' &&
-<button onClick={()=>completeTask(t.id)}>
-Complete
-</button>
-}
-
-</div>
-))}
-
-</div>
-)
+      <div className="bottom-nav">
+        <div
+          className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tasks')}
+        >
+          <span className="nav-icon">✨</span>
+          <span>Quests</span>
+        </div>
+        <div
+          className={`nav-item ${activeTab === 'rewards' ? 'active' : ''}`}
+          onClick={() => setActiveTab('rewards')}
+        >
+          <span className="nav-icon">🎁</span>
+          <span>Rewards</span>
+        </div>
+        <div
+          className="nav-item"
+          onClick={() => {
+            localStorage.removeItem("user");
+            nav("/");
+          }}
+        >
+          <span className="nav-icon">🚪</span>
+          <span>Logout</span>
+        </div>
+      </div>
+    </div>
+  );
 }
