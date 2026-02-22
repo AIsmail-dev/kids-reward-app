@@ -22,6 +22,10 @@ export default function KidDashboard() {
     }
     fetchTasks();
     fetchBalance();
+
+    if (isPushSupported && Notification.permission === 'granted') {
+      requestPushPermission(kidId);
+    }
   }, []);
 
   async function fetchTasks() {

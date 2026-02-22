@@ -19,6 +19,10 @@ export default function ParentDashboard() {
     useEffect(() => {
         fetchCompletedTasks();
         fetchWithdrawals();
+
+        if (isPushSupported && Notification.permission === 'granted') {
+            requestPushPermission(user?.id);
+        }
     }, []);
 
     async function fetchCompletedTasks() {
