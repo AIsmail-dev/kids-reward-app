@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { requestPushPermission, sendNotification } from "../pushManager";
 
 export default function KidDashboard() {
   const [tasks, setTasks] = useState([]);
   const [balance, setBalance] = useState(0);
   const [activeTab, setActiveTab] = useState("tasks");
+  const isPushSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+  const [pushEnabled, setPushEnabled] = useState(isPushSupported && Notification.permission === 'granted');
 
   const nav = useNavigate();
   const userStr = localStorage.getItem("user");
@@ -56,7 +59,7 @@ export default function KidDashboard() {
     }
   }
 
-  async function requestApproval(id) {
+  async function requestApproval(id, taskTitle) {
     const { error } = await supabase
       .from('task_occurrences')
       .update({ status: 'waiting_parent' })
@@ -65,6 +68,12 @@ export default function KidDashboard() {
     if (error) alert("Oops! Something went wrong.");
     else {
       alert("Sent to parent for approval! 🚀");
+      sendNotification({
+        title: 'Task Finished! 🚀',
+        message: `${user?.name} just finished "${taskTitle}" and needs approval!`,
+        targetRole: 'parent',
+        url: '/login'
+      });
       fetchTasks();
     }
   }
@@ -98,9 +107,22 @@ export default function KidDashboard() {
   return (
     <div className="app-wrapper">
       <div className="content-area">
-        <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem" }}>
-          Hi, {user?.name}! 👋
-        </h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem", margin: 0 }}>
+            Hi, {user?.name}! 👋
+          </h1>
+          {isPushSupported && !pushEnabled && (
+            <button
+              onClick={async () => {
+                const success = await requestPushPermission(kidId);
+                if (success) setPushEnabled(true);
+              }}
+              style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", padding: "5px", animation: "pulse 2s infinite" }}
+            >
+              🔔
+            </button>
+          )}
+        </div>
 
         <div className="card balance-card">
           <h2>Your Balance</h2>
@@ -130,7 +152,7 @@ export default function KidDashboard() {
 
                   <div style={{ marginTop: "12px" }}>
                     {t.status === "pending" && (
-                      <button className="button" onClick={() => requestApproval(t.id)}>
+                      <button className="button" onClick={() => requestApproval(t.id, t.tasks?.title)}>
                         I Did It! ✅
                       </button>
                     )}

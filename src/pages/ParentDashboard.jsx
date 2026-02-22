@@ -2,12 +2,19 @@ import React, { useEffect, useState } from "react";
 import ParentTaskManager from "./ParentTaskManager";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { requestPushPermission, sendNotification } from "../pushManager";
 
 export default function ParentDashboard() {
     const [completed, setCompleted] = useState([]);
     const [withdrawals, setWithdrawals] = useState([]);
     const [activeTab, setActiveTab] = useState("approvals");
     const nav = useNavigate();
+
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    const isPushSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    const [pushEnabled, setPushEnabled] = useState(isPushSupported && Notification.permission === 'granted');
 
     useEffect(() => {
         fetchCompletedTasks();
@@ -56,6 +63,13 @@ export default function ParentDashboard() {
             .update({ status: 'approved' })
             .eq('id', task.id);
 
+        sendNotification({
+            title: 'Task Approved! 🌟',
+            message: `Your parent approved "${task.tasks?.title}" and you earned ${task.tasks?.reward} ر.س!`,
+            targetKidId: kidToReward,
+            url: '/login'
+        });
+
         fetchCompletedTasks();
     }
 
@@ -79,9 +93,22 @@ export default function ParentDashboard() {
     return (
         <div className="app-wrapper">
             <div className="content-area">
-                <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem" }}>
-                    Parent Dashboard 👨‍👩‍👧‍👦
-                </h1>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h1 className="title" style={{ textAlign: "left", fontSize: "1.5rem", margin: 0 }}>
+                        Parent Dashboard 👨‍👩‍👧‍👦
+                    </h1>
+                    {isPushSupported && !pushEnabled && (
+                        <button
+                            onClick={async () => {
+                                const success = await requestPushPermission(user?.id);
+                                if (success) setPushEnabled(true);
+                            }}
+                            style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", padding: "5px", animation: "pulse 2s infinite" }}
+                        >
+                            🔔
+                        </button>
+                    )}
+                </div>
 
                 {activeTab === "approvals" && (
                     <div>
