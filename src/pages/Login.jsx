@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
 import { QRCodeSVG } from 'qrcode.react'
+import * as OTPAuth from 'otpauth'
 
 export default function Login() {
     const [name, setName] = useState("")
@@ -54,15 +55,19 @@ export default function Login() {
             // Check if they already have MFA configured
             if (!data.totp_secret) {
                 setMfaSetup(true)
-                // Request a new secret from our vercel api
-                const res = await fetch('/api/totp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'generate', userEmail: data.name })
+
+                const newSecret = new OTPAuth.Secret({ size: 20 });
+                const totp = new OTPAuth.TOTP({
+                    issuer: 'KidsApp',
+                    label: data.name || 'Parent',
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret: newSecret
                 });
-                const setupData = await res.json()
-                setMfaSecret(setupData.secret)
-                setMfaQrUri(setupData.otpauth)
+
+                setMfaSecret(newSecret.base32)
+                setMfaQrUri(totp.toString())
             }
         } else {
             localStorage.setItem("user", JSON.stringify(data))
@@ -79,14 +84,24 @@ export default function Login() {
 
         const secretToCheck = mfaSetup ? mfaSecret : parentData.totp_secret;
 
-        const res = await fetch('/api/totp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'verify', token: mfaCode, secret: secretToCheck })
-        });
-        const result = await res.json()
+        let isValid = false;
+        try {
+            const totp = new OTPAuth.TOTP({
+                issuer: 'KidsApp',
+                label: parentData.name || 'Parent',
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: OTPAuth.Secret.fromBase32(secretToCheck)
+            });
 
-        if (result.isValid) {
+            const delta = totp.validate({ token: mfaCode, window: 1 });
+            isValid = (delta !== null);
+        } catch (e) {
+            console.error("MFA Validation Error", e)
+        }
+
+        if (isValid) {
             if (mfaSetup) {
                 // Save the newly generated secret back to supabase
                 await supabase.from('users').update({ totp_secret: mfaSecret }).eq('id', parentData.id);
