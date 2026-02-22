@@ -22,7 +22,8 @@ export default function ParentDashboard() {
         kid_id,
         tasks:task_id (
           title,
-          reward
+          reward,
+          assigned_kid
         )
       `)
             .in('status', ['completed', 'waiting_parent']); // Support both statuses in case of old data
@@ -40,10 +41,12 @@ export default function ParentDashboard() {
     }
 
     async function approveTask(task) {
+        const kidToReward = task.kid_id || task.tasks.assigned_kid;
+
         await supabase
             .from('wallet_transactions')
             .insert({
-                kid_id: task.kid_id,
+                kid_id: kidToReward,
                 amount: task.tasks.reward,
                 type: 'reward'
             });
@@ -154,7 +157,7 @@ export default function ParentDashboard() {
                     className="nav-item"
                     onClick={() => {
                         localStorage.removeItem("user");
-                        nav("/");
+                        nav("/login");
                     }}
                 >
                     <span className="nav-icon">🚪</span>

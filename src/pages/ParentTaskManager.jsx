@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { supabase } from "../supabaseClient"
 
 export default function ParentTaskManager() {
@@ -6,7 +6,23 @@ export default function ParentTaskManager() {
     const [title, setTitle] = useState("")
     const [reward, setReward] = useState("")
     const [repeat, setRepeat] = useState("daily")
-    const [kid, setKid] = useState("11111111-1111-1111-1111-111111111111")
+    const [kid, setKid] = useState("")
+    const [kids, setKids] = useState([])
+
+    useEffect(() => {
+        async function fetchKids() {
+            const { data } = await supabase
+                .from('users')
+                .select('*')
+                .eq('role', 'kid')
+
+            if (data && data.length > 0) {
+                setKids(data)
+                setKid(data[0].id)
+            }
+        }
+        fetchKids()
+    }, [])
 
     async function createTask() {
         if (!title || !reward) {
@@ -14,15 +30,21 @@ export default function ParentTaskManager() {
             return;
         }
 
-        await supabase
+        const { error } = await supabase
             .from('tasks')
             .insert({
                 title,
                 reward: parseInt(reward),
-                repeat_type: repeat,
-                kid_id: kid,
+                recurrence: repeat,
+                assigned_kid: kid,
                 active: true
             })
+
+        if (error) {
+            console.error("Error creating task:", error)
+            alert("Error: " + error.message)
+            return;
+        }
 
         alert("Task Created! ✅")
         setTitle("")
@@ -68,15 +90,11 @@ export default function ParentTaskManager() {
                 value={kid}
                 onChange={e => setKid(e.target.value)}
             >
-                <option value="11111111-1111-1111-1111-111111111111">
-                    Farida
-                </option>
-                <option value="22222222-2222-2222-2222-222222222222">
-                    Yahia
-                </option>
-                <option value="33333333-3333-3333-3333-333333333333">
-                    Ahmed
-                </option>
+                {kids.map(k => (
+                    <option key={k.id} value={k.id}>
+                        {k.name}
+                    </option>
+                ))}
             </select>
 
             <button className="button" onClick={createTask}>
@@ -86,3 +104,4 @@ export default function ParentTaskManager() {
         </div>
     )
 }
+

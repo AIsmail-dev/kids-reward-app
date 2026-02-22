@@ -14,7 +14,7 @@ export default function KidDashboard() {
 
   useEffect(() => {
     if (!user) {
-      nav("/");
+      nav("/login");
       return;
     }
     fetchTasks();
@@ -29,12 +29,13 @@ export default function KidDashboard() {
       .select(`
         id,
         status,
-        tasks:task_id (
+        tasks:task_id!inner (
           title,
-          reward
+          reward,
+          assigned_kid
         )
       `)
-      .eq('kid_id', kidId)
+      .eq('tasks.assigned_kid', kidId)
       .eq('scheduled_date', today);
 
     if (error) console.error("Error fetching tasks:", error);
@@ -194,7 +195,7 @@ export default function KidDashboard() {
           className="nav-item"
           onClick={() => {
             localStorage.removeItem("user");
-            nav("/");
+            nav("/login");
           }}
         >
           <span className="nav-icon">🚪</span>

@@ -1,10 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 
 :root {
-  --primary: #FF6B6B; /* Vibrant Red */
-  --secondary: #4D96FF; /* Sky Blue */
-  --success: #6BCB77; /* Playful Green */
-  --warning: #FFD93D; /* Sunny Yellow */
+  --primary: #FF6B6B;
+  /* Vibrant Red */
+  --secondary: #4D96FF;
+  /* Sky Blue */
+  --success: #6BCB77;
+  /* Playful Green */
+  --warning: #FFD93D;
+  /* Sunny Yellow */
   --bg-color: #F7F9FC;
   --text-main: #2B2D42;
   --white: #FFFFFF;
@@ -29,17 +33,20 @@ body {
   margin: auto;
   position: relative;
   background: #FFF;
-  box-shadow: 0 0 20px rgba(0,0,0,0.05);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
 }
 
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 24px 100px 24px; /* Space for bottom nav */
+  padding: 24px 24px 100px 24px;
+  /* Space for bottom nav */
 }
 
 /* Typography & Titles */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin-top: 0;
   color: var(--secondary);
   font-weight: 800;
@@ -50,7 +57,7 @@ h1, h2, h3 {
   font-size: 2rem;
   margin-bottom: 20px;
   color: var(--primary);
-  text-shadow: 2px 2px 0px rgba(255,107,107,0.2);
+  text-shadow: 2px 2px 0px rgba(255, 107, 107, 0.2);
 }
 
 /* Cards */
@@ -59,7 +66,7 @@ h1, h2, h3 {
   border-radius: 24px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 10px 30px rgba(77,150,255,0.1);
+  box-shadow: 0 10px 30px rgba(77, 150, 255, 0.1);
   border: 3px solid transparent;
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
@@ -69,7 +76,7 @@ h1, h2, h3 {
 
 .card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(77,150,255,0.15);
+  box-shadow: 0 15px 35px rgba(77, 150, 255, 0.15);
 }
 
 .card h3 {
@@ -97,9 +104,21 @@ h1, h2, h3 {
   color: #666;
   width: max-content;
 }
-.badge.pending { background: #FFEDD5; color: #EA580C; }
-.badge.waiting_parent { background: #FEF3C7; color: #D97706; }
-.badge.approved { background: #DCFCE7; color: #16A34A; }
+
+.badge.pending {
+  background: #FFEDD5;
+  color: #EA580C;
+}
+
+.badge.waiting_parent {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.badge.approved {
+  background: #DCFCE7;
+  color: #16A34A;
+}
 
 /* Buttons */
 .button {
@@ -112,7 +131,7 @@ h1, h2, h3 {
   font-weight: 800;
   cursor: pointer;
   text-align: center;
-  box-shadow: 0 6px 0px rgba(230,57,70,0.4);
+  box-shadow: 0 6px 0px rgba(230, 57, 70, 0.4);
   transition: all 0.1s;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -120,20 +139,26 @@ h1, h2, h3 {
 
 .button:active {
   transform: translateY(6px);
-  box-shadow: 0 0px 0px rgba(230,57,70,0.4);
+  box-shadow: 0 0px 0px rgba(230, 57, 70, 0.4);
 }
 
 .button-secondary {
   background: var(--success);
-  box-shadow: 0 6px 0px rgba(76,175,80,0.4);
+  box-shadow: 0 6px 0px rgba(76, 175, 80, 0.4);
 }
-.button-secondary:active { box-shadow: 0 0px 0px rgba(76,175,80,0.4); }
+
+.button-secondary:active {
+  box-shadow: 0 0px 0px rgba(76, 175, 80, 0.4);
+}
 
 .button-info {
   background: var(--secondary);
-  box-shadow: 0 6px 0px rgba(41,128,185,0.4);
+  box-shadow: 0 6px 0px rgba(41, 128, 185, 0.4);
 }
-.button-info:active { box-shadow: 0 0px 0px rgba(41,128,185,0.4); }
+
+.button-info:active {
+  box-shadow: 0 0px 0px rgba(41, 128, 185, 0.4);
+}
 
 /* Balances */
 .balance-card {
@@ -142,17 +167,19 @@ h1, h2, h3 {
   text-align: center;
   border-radius: 24px;
 }
+
 .balance-card h2 {
   color: #FFF;
   margin: 0;
   font-size: 1.2rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
+
 .balance-amount {
   font-size: 3rem;
   font-weight: 900;
   margin: 10px 0;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Login specific Elements */
@@ -180,7 +207,7 @@ h1, h2, h3 {
   background: #FFF;
   appearance: none;
   cursor: pointer;
-  box-shadow: 0 4px 0px rgba(77,150,255,0.3);
+  box-shadow: 0 4px 0px rgba(77, 150, 255, 0.3);
   margin-bottom: 30px;
 }
 
@@ -245,7 +272,7 @@ h1, h2, h3 {
   justify-content: space-around;
   padding: 16px 10px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0));
-  box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.05);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   z-index: 100;
@@ -279,9 +306,38 @@ h1, h2, h3 {
     border-radius: 30px;
     margin-top: 5vh;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   }
+
   .bottom-nav {
     position: absolute;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-15px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
   }
 }
