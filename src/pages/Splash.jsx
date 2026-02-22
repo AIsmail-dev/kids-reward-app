@@ -12,20 +12,17 @@ export default function Splash() {
     }, [nav]);
 
     return (
-        <div className="login-container" style={{ backgroundColor: "var(--bg-color)" }}>
+        <div className="app-wrapper" style={{ backgroundColor: "var(--bg-color)", display: "flex", justifyContent: "center", alignItems: "center" }}>
             <img
                 src="/icon.png"
                 alt="Kids Reward App"
                 style={{
-                    width: "180px",
-                    height: "180px",
-                    objectFit: "contain",
-                    animation: "float 2s ease-in-out infinite",
-                    marginBottom: "20px",
-                    filter: "drop-shadow(0 10px 15px rgba(0,0,0,0.1))"
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "inherit"
                 }}
             />
-            <h1 className="title" style={{ fontSize: "2.5rem", animation: "pulse 2s infinite" }}>Kids Rewards</h1>
         </div>
     );
 }
