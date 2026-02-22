@@ -76,7 +76,8 @@ export default function KidDashboard() {
         title: 'Task Finished! 🚀',
         message: `${user?.name} just finished "${taskTitle}" and needs approval!`,
         targetRole: 'parent',
-        url: '/login'
+        url: '/login',
+        type: 'notify_parent'
       });
       fetchTasks();
     }

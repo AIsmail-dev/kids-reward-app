@@ -1,11 +1,17 @@
 self.addEventListener('push', function (event) {
     if (event.data) {
         const data = event.data.json();
+        let soundUrl = undefined;
+
+        if (data.type === 'notify_parent') soundUrl = '/notify_parent.mp3';
+        else if (data.type === 'notify_kid') soundUrl = '/notify_kid.mp3';
+
         const options = {
             body: data.body,
             icon: '/icon.png',
             badge: '/icon.png',
-            vibrate: [200, 100, 200],
+            sound: soundUrl,
+            vibrate: data.type === 'notify_kid' ? [200, 100, 200, 100, 200, 100, 400] : [200, 100, 200],
             data: { url: data.url || '/' }
         };
         event.waitUntil(

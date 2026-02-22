@@ -9,7 +9,7 @@ webpush.setVapidDetails('mailto:admin@kidsrewards.app', VAPID_PUBLIC, VAPID_PRIV
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { title, message, targetRole, targetKidId, url } = req.body;
+    const { title, message, targetRole, targetKidId, url, type } = req.body;
 
     const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription').in('user_id', userIds);
         if (subErr || !subs) return res.status(500).json({ error: subErr });
 
-        const payload = JSON.stringify({ title, body: message, url: url || '/' });
+        const payload = JSON.stringify({ title, body: message, url: url || '/', type: type || 'default' });
         const promises = subs.map(s => webpush.sendNotification(s.subscription, payload).catch(e => console.error("Push Error", e)));
 
         await Promise.all(promises);

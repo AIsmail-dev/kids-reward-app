@@ -71,7 +71,8 @@ export default function ParentDashboard() {
             title: 'Task Approved! 🌟',
             message: `Your parent approved "${task.tasks?.title}" and you earned ${task.tasks?.reward} ر.س!`,
             targetKidId: kidToReward,
-            url: '/login'
+            url: '/login',
+            type: 'notify_kid'
         });
 
         fetchCompletedTasks();
