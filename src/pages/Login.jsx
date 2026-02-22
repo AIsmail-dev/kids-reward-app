@@ -193,9 +193,12 @@ export default function Login() {
                     )}
 
                     <input
-                        type="number"
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="one-time-code"
                         value={mfaCode}
-                        onChange={e => setMfaCode(e.target.value.slice(0, 6))}
+                        onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="000000"
                         style={{
                             width: '100%', padding: '15px', fontSize: '24px',
