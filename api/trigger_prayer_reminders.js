@@ -14,9 +14,9 @@ export default async function handler(req, res) {
 
     // Get current Riyadh time in HH:MM Format 24hr
     const nowRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));
-    const h = String(nowRiyadh.getHours()).padStart(2, '0');
-    const m = String(nowRiyadh.getMinutes()).padStart(2, '0');
-    const currentTimeStr = `${h}:${m}`;
+    const h = nowRiyadh.getHours();
+    const m = nowRiyadh.getMinutes();
+    const currentTotalMinutes = h * 60 + m;
     const todayDate = nowRiyadh.toISOString().split('T')[0];
 
     try {
@@ -27,67 +27,86 @@ export default async function handler(req, res) {
 
         // Ensure robust matching whether tasks were named "صلاة الفجر" or simply "فجر" or "Fajr"
         const prayerKeys = {
-            'Fajr': ['فجر', 'fajr'],
-            'Dhuhr': ['ظهر', 'dhuhr', 'zuhr'],
-            'Asr': ['عصر', 'asr'],
-            'Maghrib': ['مغرب', 'maghrib'],
-            'Isha': ['عشاء', 'isha']
+            'Fajr': { keywords: ['فجر', 'fajr'], soundBase: 'fajr' },
+            'Dhuhr': { keywords: ['ظهر', 'dhuhr', 'zuhr'], soundBase: 'dhuhr' },
+            'Asr': { keywords: ['عصر', 'asr'], soundBase: 'asr' },
+            'Maghrib': { keywords: ['مغرب', 'maghrib'], soundBase: 'maghrib' },
+            'Isha': { keywords: ['عشاء', 'isha'], soundBase: 'isha' }
         };
 
-        const currentDue = [];
+        const activePrayers = [];
         const times = { Fajr: timings.Fajr, Dhuhr: timings.Dhuhr, Asr: timings.Asr, Maghrib: timings.Maghrib, Isha: timings.Isha };
 
         for (const [p, t] of Object.entries(times)) {
-            // Strictly check for equality (this cron is expected to run every 1 minute)
-            if (t === currentTimeStr) currentDue.push(p);
+            const [pHour, pMin] = t.split(':').map(Number);
+            const prayerTotalMinutes = pHour * 60 + pMin;
+
+            let diff = currentTotalMinutes - prayerTotalMinutes;
+
+            // If the time is later in the current day, diff will be negative
+            if (diff >= 0 && diff % 30 === 0 && diff < 1440) {
+                activePrayers.push({
+                    name: p,
+                    isReminder: diff > 0, // 0 = exactly time, 30+ = reminder
+                    config: prayerKeys[p]
+                });
+            }
         }
 
-        if (currentDue.length === 0) {
-            return res.status(200).json({ message: "No prayer exactly right now", serverTimeRiyadh: currentTimeStr, prayerTimes: times });
+        if (activePrayers.length === 0) {
+            return res.status(200).json({ message: "No prayer or reminder exactly at this minute", serverTimeRiyadh: `${h}:${m}` });
         }
 
-        // Only bother fetching Prayer tasks that are pending and haven't triggered today
+        // Only bother fetching Prayer tasks that are pending
         const { data: occurrences, error: occErr } = await supabase.from('task_occurrences')
             .select('id, kid_id, tasks!inner(title, task_type)')
             .eq('scheduled_date', todayDate)
             .eq('status', 'pending')
-            .eq('reminder_sent', false)
             .eq('tasks.task_type', 'prayer');
 
         if (occErr) return res.status(500).json({ error: occErr.message });
         if (!occurrences || occurrences.length === 0) return res.status(200).json({ message: "No pending prayer tasks to remind about." });
 
-        const toRemind = occurrences.filter(occ => {
-            const title = (occ.tasks.title || "").toLowerCase();
-            return currentDue.some(due => {
-                return prayerKeys[due].some(keyword => title.includes(keyword));
-            });
-        });
+        let promises = [];
+        let notificationsSent = 0;
 
-        if (toRemind.length === 0) return res.status(200).json({ message: "No matching task titles for the current prayer time." });
-
-        // Safely check off these specific tasks globally so we never double-notify
-        const occIds = toRemind.map(o => o.id);
-        await supabase.from('task_occurrences').update({ reminder_sent: true }).in('id', occIds);
-
-        // Batch Web-Push logic exactly how we do for Kids/Parents normally
-        const kidIds = [...new Set(toRemind.map(o => o.kid_id))];
+        const kidIds = [...new Set(occurrences.map(o => o.kid_id))];
         const { data: subs } = await supabase.from('push_subscriptions').select('subscription, user_id').in('user_id', kidIds);
 
-        let promises = [];
-        toRemind.forEach(occ => {
-            const kidSubs = (subs || []).filter(s => s.user_id === occ.kid_id);
-            const payload = JSON.stringify({
-                title: 'حان وقت الصلاة! 🕌',
-                body: `حان الآن وقت ${occ.tasks.title}. هيا لنصلي ونكسب المكافأة! 🌟`,
-                url: '/',
-                type: 'notify_kid'
-            });
-            kidSubs.forEach(s => promises.push(webpush.sendNotification(s.subscription, payload).catch(e => console.error(e))));
+        occurrences.forEach(occ => {
+            const title = (occ.tasks.title || "").toLowerCase();
+
+            // Check if this task matches the active prayer we are checking right now
+            const matchedPrayer = activePrayers.find(ap =>
+                ap.config.keywords.some(k => title.includes(k))
+            );
+
+            if (matchedPrayer) {
+                const kidSubs = (subs || []).filter(s => s.user_id === occ.kid_id);
+                const soundFile = `/${matchedPrayer.config.soundBase}_${matchedPrayer.isReminder ? 'remind' : 'now'}.mp3`;
+
+                const titleText = matchedPrayer.isReminder ? 'تذكير بالصلاة! 📿' : 'حان وقت الصلاة! 🕌';
+                const bodyText = matchedPrayer.isReminder
+                    ? `لا تنسى صلاة ${matchedPrayer.config.keywords[0]}! هيا اكسب مكافأتك.`
+                    : `حان الآن وقت صلاة ${matchedPrayer.config.keywords[0]}!`;
+
+                const payload = JSON.stringify({
+                    title: titleText,
+                    body: bodyText,
+                    url: '/',
+                    type: 'notify_kid',
+                    customSound: soundFile
+                });
+
+                kidSubs.forEach(s => {
+                    promises.push(webpush.sendNotification(s.subscription, payload).catch(e => console.error(e)));
+                    notificationsSent++;
+                });
+            }
         });
 
         await Promise.allSettled(promises);
-        return res.status(200).json({ success: true, notifications_sent: promises.length, prayers_due: currentDue });
+        return res.status(200).json({ success: true, notifications_sent: notificationsSent, active_prayers: activePrayers });
 
     } catch (err) {
         return res.status(500).json({ error: err.message });

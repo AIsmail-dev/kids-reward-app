@@ -3,7 +3,8 @@ self.addEventListener('push', function (event) {
         const data = event.data.json();
         let soundUrl = undefined;
 
-        if (data.type === 'notify_parent') soundUrl = '/notify_parent.mp3';
+        if (data.customSound) soundUrl = data.customSound;
+        else if (data.type === 'notify_parent') soundUrl = '/notify_parent.mp3';
         else if (data.type === 'notify_kid') soundUrl = '/notify_kid.mp3';
 
         const options = {
