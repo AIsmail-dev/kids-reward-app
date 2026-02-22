@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
+    "otplib": "^13.3.0",
+    "qrcode.react": "^4.2.0",
+    "react-icons": "^5.5.0",
     "react-router-dom": "^7.13.0",
     "sharp": "^0.34.5",
     "vite-plugin-pwa": "^1.2.0",

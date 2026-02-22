@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import ParentTaskManager from "./ParentTaskManager";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { requestPushPermission, sendNotification } from "../pushManager";
@@ -162,12 +161,6 @@ export default function ParentDashboard() {
                         ))}
                     </div>
                 )}
-
-                {activeTab === "manage" && (
-                    <div style={{ marginTop: "20px" }}>
-                        <ParentTaskManager />
-                    </div>
-                )}
             </div>
 
             <div className="bottom-nav">
@@ -179,11 +172,11 @@ export default function ParentDashboard() {
                     <span>Approvals</span>
                 </div>
                 <div
-                    className={`nav-item ${activeTab === 'manage' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('manage')}
+                    className="nav-item"
+                    onClick={() => nav("/admin")}
                 >
-                    <span className="nav-icon">⚙️</span>
-                    <span>Manage</span>
+                    <span className="nav-icon">💻</span>
+                    <span>Admin</span>
                 </div>
                 <div
                     className="nav-item"

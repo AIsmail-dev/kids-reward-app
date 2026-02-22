@@ -5,6 +5,10 @@ import KidDashboard from "./pages/KidDashboard"
 import ParentDashboard from "./pages/ParentDashboard"
 import Login from "./pages/Login"
 
+import AdminLayout from "./admin/AdminLayout"
+import AdminTasks from "./admin/AdminTasks"
+import AdminSettings from "./admin/AdminSettings"
+
 function App() {
     return (
         <BrowserRouter>
@@ -14,6 +18,11 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/kid" element={<KidDashboard />} />
                 <Route path="/parent" element={<ParentDashboard />} />
+
+                <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminTasks />} />
+                    <Route path="settings" element={<AdminSettings />} />
+                </Route>
 
             </Routes>
         </BrowserRouter>

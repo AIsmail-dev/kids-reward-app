@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 -- We will schedule it, please change the URL below to match your actual DEV or PROD URL!
 SELECT cron.schedule('prayer-reminders-job', '* * * * *', $$
     SELECT net.http_post(
-        url := 'https://REPLACE_WITH_YOUR_VERCEL_URL.vercel.app/api/trigger_prayer_reminders',
+        url := 'https://kids-reward-app-git-dev-aismail-devs-projects.vercel.app/api/trigger_prayer_reminders',
         headers := '{"Content-Type": "application/json"}'::jsonb
     );
 $$);
