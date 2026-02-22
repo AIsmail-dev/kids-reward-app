@@ -68,7 +68,7 @@ export default function ParentTaskManager() {
                 className="user-select"
                 style={{ width: '100%', marginBottom: '15px' }}
                 type="number"
-                placeholder="Reward Amount ($)"
+                placeholder="Reward Amount (SAR)"
                 value={reward}
                 onChange={e => setReward(e.target.value)}
             />

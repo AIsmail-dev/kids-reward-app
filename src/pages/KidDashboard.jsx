@@ -75,7 +75,7 @@ export default function KidDashboard() {
       return;
     }
 
-    const amount = prompt(`How much would you like to withdraw? (Max: $${balance})`);
+    const amount = prompt(`How much would you like to withdraw? (Max: ${balance} SAR)`);
     if (!amount || isNaN(amount) || parseInt(amount) <= 0) return;
 
     if (parseInt(amount) > balance) {
@@ -104,7 +104,7 @@ export default function KidDashboard() {
 
         <div className="card balance-card">
           <h2>Your Balance</h2>
-          <div className="balance-amount">${balance}</div>
+          <div className="balance-amount">{balance} SAR</div>
           <p style={{ color: "rgba(255,255,255,0.8)" }}>Awesome job! Keep it up! ⭐</p>
         </div>
 
@@ -124,7 +124,7 @@ export default function KidDashboard() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <h3 style={{ margin: 0, fontSize: "1.2rem", flex: 1 }}>{t.tasks?.title}</h3>
                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
-                      ${t.tasks?.reward}
+                      {t.tasks?.reward} SAR
                     </div>
                   </div>
 

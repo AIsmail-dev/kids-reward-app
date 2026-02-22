@@ -96,7 +96,7 @@ export default function ParentDashboard() {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1 }}>{t.tasks?.title}</h3>
                                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
-                                        ${t.tasks?.reward}
+                                        {t.tasks?.reward} SAR
                                     </div>
                                 </div>
                                 <div style={{ marginTop: "12px" }}>
@@ -118,7 +118,7 @@ export default function ParentDashboard() {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1, textTransform: "capitalize" }}>{w.method}</h3>
                                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold", fontSize: "1.2rem" }}>
-                                        ${w.amount}
+                                        {w.amount} SAR
                                     </div>
                                 </div>
                                 <div style={{ marginTop: "12px" }}>
