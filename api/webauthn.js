@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SimpleWebAuthnServer from '@simplewebauthn/server';
+import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { Buffer } from 'node:buffer';
 
 export default async function handler(req, res) {
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     try {
         if (action === 'generate-registration') {
-            const options = await SimpleWebAuthnServer.generateRegistrationOptions({
+            const options = await generateRegistrationOptions({
                 rpName: 'Kids Rewards App',
                 rpID,
                 userID: new Uint8Array(Buffer.from(user.id)),
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         }
 
         if (action === 'verify-registration') {
-            const verification = await SimpleWebAuthnServer.verifyRegistrationResponse({
+            const verification = await verifyRegistrationResponse({
                 response: credential,
                 expectedChallenge: user.current_challenge,
                 expectedOrigin: origin,
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         }
 
         if (action === 'generate-authentication') {
-            const options = await SimpleWebAuthnServer.generateAuthenticationOptions({
+            const options = await generateAuthenticationOptions({
                 rpID,
                 userVerification: 'preferred',
                 allowCredentials: passkeys.map(key => ({
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ verified: false, error: 'Authenticator is not registered with this site' });
             }
 
-            const verification = await SimpleWebAuthnServer.verifyAuthenticationResponse({
+            const verification = await verifyAuthenticationResponse({
                 response: credential,
                 expectedChallenge: user.current_challenge,
                 expectedOrigin: origin,
