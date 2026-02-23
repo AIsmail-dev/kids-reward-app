@@ -30,6 +30,8 @@ export default function ParentDashboard() {
             .select(`
         id,
         kid_id,
+        scheduled_date,
+        users ( name ),
         tasks:task_id (
           title,
           reward,
@@ -130,6 +132,9 @@ export default function ParentDashboard() {
                                         {t.tasks?.reward} ر.س
                                     </div>
                                 </div>
+                                <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
+                                    {t.users?.name || 'Unknown'} • {new Date(t.scheduled_date).toLocaleDateString()}
+                                </p>
                                 <div style={{ marginTop: "12px" }}>
                                     <button className="button button-secondary" onClick={() => approveTask(t)}>
                                         Approve Task
