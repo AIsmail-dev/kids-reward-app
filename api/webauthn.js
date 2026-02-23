@@ -1,29 +1,42 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Helper to convert Uint8Array to Base64 String
+function bufferToBase64(buf) {
+    const binString = Array.from(buf, (x) => String.fromCharCode(x)).join("");
+    return btoa(binString);
+}
+
+// Helper to convert Base64 String to Uint8Array
+function base64ToBuffer(b64) {
+    const binString = atob(b64);
+    return Uint8Array.from(binString, (m) => m.charCodeAt(0));
+}
+
 export default async function handler(req, res) {
+    console.log("WebAuthn Handler Invoked:", req.body?.action);
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
-    const { action, userId, userName, rpID, origin, credential } = req.body;
-
-    let query = supabase.from('users').select('*');
-    if (userId) query = query.eq('id', userId);
-    else if (userName) query = query.eq('name', userName);
-    else return res.status(400).json({ error: 'Missing userId or userName' });
-
-    const { data: user } = await query.single();
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const passkeys = user.passkeys || [];
-
     try {
+        const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+        const { action, userId, userName, rpID, origin, credential } = req.body;
+
+        let query = supabase.from('users').select('*');
+        if (userId) query = query.eq('id', userId);
+        else if (userName) query = query.eq('name', userName);
+        else return res.status(400).json({ error: 'Missing userId or userName' });
+
+        const { data: user } = await query.single();
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const passkeys = user.passkeys || [];
+
         const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = await import('@simplewebauthn/server');
 
         if (action === 'generate-registration') {
             const options = await generateRegistrationOptions({
                 rpName: 'Kids Rewards App',
                 rpID,
-                userID: new Uint8Array(Buffer.from(user.id)),
+                userID: new TextEncoder().encode(user.id),
                 userName: user.name,
                 attestationType: 'none',
                 excludeCredentials: passkeys.map(key => ({
@@ -52,7 +65,7 @@ export default async function handler(req, res) {
 
                 const newPasskey = {
                     id: newCred.id,
-                    publicKey: Buffer.from(newCred.publicKey).toString('base64'),
+                    publicKey: bufferToBase64(newCred.publicKey),
                     counter: newCred.counter,
                     transports: newCred.transports || [],
                 };
@@ -94,14 +107,13 @@ export default async function handler(req, res) {
                 expectedRPID: rpID,
                 credential: {
                     id: passkey.id,
-                    publicKey: new Uint8Array(Buffer.from(passkey.publicKey, 'base64')),
+                    publicKey: base64ToBuffer(passkey.publicKey),
                     counter: passkey.counter,
                     transports: passkey.transports,
                 }
             });
 
             if (verification.verified) {
-                // Update counter
                 passkey.counter = verification.authenticationInfo.newCounter;
                 await supabase.from('users').update({
                     passkeys,
@@ -113,10 +125,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ verified: false });
         }
 
+        return res.status(400).json({ error: 'Invalid action' });
     } catch (err) {
-        console.error(err);
+        console.error("WebAuthn Error:", err.message, err.stack);
         return res.status(500).json({ error: err.message });
     }
-
-    return res.status(400).json({ error: 'Invalid action' });
 }
