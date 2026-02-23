@@ -1,29 +1,22 @@
 import React, { useState, useEffect } from "react"
 import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
-import { QRCodeSVG } from 'qrcode.react'
-import * as OTPAuth from 'otpauth'
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 
 export default function Login() {
     const [name, setName] = useState("")
     const [pin, setPin] = useState("")
     const [error, setError] = useState(false)
-
-    // MFA States
-    const [mfaStep, setMfaStep] = useState(false)
-    const [mfaSetup, setMfaSetup] = useState(false)
-    const [mfaCode, setMfaCode] = useState("")
-    const [mfaSecret, setMfaSecret] = useState("")
-    const [mfaQrUri, setMfaQrUri] = useState("")
-    const [parentData, setParentData] = useState(null)
+    const [loading, setLoading] = useState(false)
 
     const nav = useNavigate()
 
     useEffect(() => {
-        if (!mfaStep && pin.length === 4) {
+        if (pin.length === 4) {
             attemptLogin()
         }
-    }, [pin, mfaStep])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pin])
 
     async function attemptLogin() {
         if (!name) {
@@ -49,109 +42,145 @@ export default function Login() {
         }
 
         if (data.role === 'parent') {
-            setParentData(data)
-            setMfaStep(true)
-
-            // Check if they already have MFA configured
-            if (!data.totp_secret) {
-                setMfaSetup(true)
-
-                const newSecret = new OTPAuth.Secret({ size: 20 });
-                const totp = new OTPAuth.TOTP({
-                    issuer: 'KidsApp',
-                    label: data.name || 'Parent',
-                    algorithm: 'SHA1',
-                    digits: 6,
-                    period: 30,
-                    secret: newSecret
-                });
-
-                setMfaSecret(newSecret.base32)
-                setMfaQrUri(totp.toString())
-            }
+            handlePasskeyLogin(data)
         } else {
             localStorage.setItem("user", JSON.stringify(data))
             nav('/kid')
         }
     }
 
-    async function verifyMFA() {
-        if (mfaCode.length !== 6) {
-            setError(true)
-            setTimeout(() => setError(false), 500)
-            return
-        }
+    async function handlePasskeyLogin(user) {
+        setLoading(true);
+        // rpID must be the same on the backend and frontend
+        const rpID = window.location.hostname;
+        const origin = window.location.origin;
 
-        const secretToCheck = mfaSetup ? mfaSecret : parentData.totp_secret;
-
-        let isValid = false;
         try {
-            const totp = new OTPAuth.TOTP({
-                issuer: 'KidsApp',
-                label: parentData.name || 'Parent',
-                algorithm: 'SHA1',
-                digits: 6,
-                period: 30,
-                secret: OTPAuth.Secret.fromBase32(secretToCheck)
-            });
+            // Fetch latest user data directly to check passkeys accurately
+            const { data: latestUser } = await supabase.from('users').select('passkeys').eq('id', user.id).single();
+            const hasPasskey = latestUser?.passkeys && latestUser.passkeys.length > 0;
 
-            const delta = totp.validate({ token: mfaCode, window: 1 });
-            isValid = (delta !== null);
-        } catch (e) {
-            console.error("MFA Validation Error", e)
-        }
+            if (!hasPasskey) {
+                // --- REGISTRATION FLOW ---
+                const respConfig = await fetch('/api/webauthn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'generate-registration', userId: user.id, rpID })
+                });
 
-        if (isValid) {
-            if (mfaSetup) {
-                // Save the newly generated secret back to supabase
-                await supabase.from('users').update({ totp_secret: mfaSecret }).eq('id', parentData.id);
-                parentData.totp_secret = mfaSecret;
+                if (!respConfig.ok) throw new Error("Could not start registration");
+                const options = await respConfig.json();
+
+                let cred;
+                try {
+                    cred = await startRegistration(options);
+                } catch (err) {
+                    console.error("Registration cancelled or failed:", err);
+                    setPin('');
+                    setLoading(false);
+                    return;
+                }
+
+                const respVerify = await fetch('/api/webauthn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify-registration', userId: user.id, rpID, origin, credential: cred })
+                });
+
+                const verifyRes = await respVerify.json();
+                if (verifyRes.verified) {
+                    localStorage.setItem("user", JSON.stringify(user));
+                    nav('/parent');
+                } else {
+                    alert("Passkey registration failed.");
+                    setPin('');
+                }
+            } else {
+                // --- AUTHENTICATION FLOW ---
+                const respConfig = await fetch('/api/webauthn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'generate-authentication', userId: user.id, rpID })
+                });
+
+                if (!respConfig.ok) throw new Error("Could not start authentication");
+                const options = await respConfig.json();
+
+                let cred;
+                try {
+                    cred = await startAuthentication(options);
+                } catch (err) {
+                    console.error("Authentication cancelled or failed:", err);
+                    setPin('');
+                    setLoading(false);
+                    return;
+                }
+
+                const respVerify = await fetch('/api/webauthn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify-authentication', userId: user.id, rpID, origin, credential: cred })
+                });
+
+                const verifyRes = await respVerify.json();
+                if (verifyRes.verified) {
+                    localStorage.setItem("user", JSON.stringify(user));
+                    nav('/parent');
+                } else {
+                    alert("Passkey verification failed.");
+                    setPin('');
+                }
             }
-
-            localStorage.setItem("user", JSON.stringify(parentData))
-            nav('/parent')
-        } else {
-            alert("Invalid MFA Code. Please try again.")
-            setMfaCode("")
-            setError(true)
-            setTimeout(() => setError(false), 500)
+        } catch (e) {
+            console.error("Passkey error:", e);
+            alert("Security error: " + e.message);
+            setPin('');
         }
+        setLoading(false);
     }
 
     const handleKeyPress = (num) => {
-        if (!mfaStep && pin.length < 4) {
+        if (pin.length < 4) {
             setPin(prev => prev + num)
         }
     }
 
     const handleDelete = () => {
-        if (!mfaStep) setPin(prev => prev.slice(0, -1))
+        setPin(prev => prev.slice(0, -1))
     }
 
     return (
         <div className="login-container">
-            {!mfaStep ? (
+            <h1 className="title">Welcome Back! ✨</h1>
+
+            <select
+                className="user-select"
+                value={name}
+                onChange={e => {
+                    setName(e.target.value)
+                    setPin("")
+                    setError(false)
+                }}
+                disabled={loading}
+            >
+                <option value="" disabled>Who are you?</option>
+                <option>Farida</option>
+                <option>Yahia</option>
+                <option>Ahmed</option>
+            </select>
+
+            {name && (
                 <>
-                    <h1 className="title">Welcome Back! ✨</h1>
+                    <h2 style={{ color: '#2B2D42', fontSize: '1.2rem', marginBottom: '10px' }}>Enter your secret PIN</h2>
 
-                    <select
-                        className="user-select"
-                        value={name}
-                        onChange={e => {
-                            setName(e.target.value)
-                            setPin("")
-                            setError(false)
-                        }}
-                    >
-                        <option value="" disabled>Who are you?</option>
-                        <option>Farida</option>
-                        <option>Yahia</option>
-                        <option>Ahmed</option>
-                    </select>
-
-                    {name && (
+                    {loading ? (
+                        <div style={{ padding: '30px', textAlign: 'center', color: '#555' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🧬</div>
+                            <p style={{ fontWeight: 'bold' }}>Waiting for Biometrics...</p>
+                            <p style={{ fontSize: '0.9rem' }}>Please verify FaceID/TouchID on your device.</p>
+                        </div>
+                    ) : (
                         <>
-                            <h2 style={{ color: '#2B2D42', fontSize: '1.2rem', marginBottom: '10px' }}>Enter your secret PIN</h2>
                             <div className="pin-dots" style={error ? { transform: 'translateX(-5px) translateX(5px)', transition: '0.1s' } : {}}>
                                 {[0, 1, 2, 3].map(i => (
                                     <div
@@ -179,53 +208,6 @@ export default function Login() {
                         </>
                     )}
                 </>
-            ) : (
-                <div style={{ textAlign: 'center', width: '100%', maxWidth: '300px' }}>
-                    <h1 className="title">Security 🔒</h1>
-
-                    {mfaSetup ? (
-                        <div style={{ background: '#fff', padding: '15px', borderRadius: '12px', marginBottom: '20px' }}>
-                            <p style={{ margin: '0 0 15px', fontSize: '14px', color: '#555' }}>Scan this QR code using Google Authenticator or an equivalent MFA app to secure your account.</p>
-                            {mfaQrUri && <QRCodeSVG value={mfaQrUri} size={150} />}
-                        </div>
-                    ) : (
-                        <p style={{ margin: '0 0 15px', fontSize: '16px', color: '#2B2D42' }}>Enter your 6-digit Authenticator Code to proceed.</p>
-                    )}
-
-                    <input
-                        type="tel"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete="one-time-code"
-                        value={mfaCode}
-                        onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="000000"
-                        style={{
-                            width: '100%', padding: '15px', fontSize: '24px',
-                            letterSpacing: '5px', textAlign: 'center', borderRadius: '12px',
-                            border: error ? '2px solid red' : '1px solid #ddd', outline: 'none',
-                            marginBottom: '20px', '-webkit-appearance': 'none'
-                        }}
-                    />
-
-                    <button className="button" onClick={verifyMFA}>
-                        {mfaSetup ? "Verify & Save 2FA" : "Login Now"}
-                    </button>
-
-                    <button
-                        className="button button-secondary"
-                        style={{ marginTop: '10px' }}
-                        onClick={() => {
-                            setMfaStep(false);
-                            setMfaSetup(false);
-                            setPin('');
-                            setMfaCode('');
-                            setName('');
-                        }}
-                    >
-                        Reset / Go Back
-                    </button>
-                </div>
             )}
         </div>
     )
