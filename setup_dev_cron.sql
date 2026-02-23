@@ -4,9 +4,12 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  today_date DATE := CURRENT_DATE;
-  today_dow INT := EXTRACT(ISODOW FROM CURRENT_DATE); -- 1=Monday, 7=Sunday
-  today_dom INT := EXTRACT(DAY FROM CURRENT_DATE);
+  -- Get the actual current date/time exactly as it is in Riyadh, Saudi Arabia
+  riyadh_now TIMESTAMP := CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Riyadh';
+  
+  today_date DATE := riyadh_now::DATE;
+  today_dow INT := EXTRACT(ISODOW FROM riyadh_now); -- 1=Monday, 7=Sunday
+  today_dom INT := EXTRACT(DAY FROM riyadh_now);
   task_record RECORD;
 BEGIN
   -- Find all active tasks that should run today
@@ -34,6 +37,8 @@ $$;
 -- 2. Enable the pg_cron extension (This allows background schedules)
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- 3. Schedule the function to run at midnight every day
--- The first parameter is the job name, the second is the cron schedule (0 0 * * * = midnight), the third is the query.
-SELECT cron.schedule('generate-daily-tasks', '0 0 * * *', 'SELECT public.generatetasks()');
+-- 3. Unschedule the old midnight UTC job if it exists (so we don't accidentally run twice)
+SELECT cron.unschedule('generate-daily-tasks');
+
+-- 4. Schedule the function to run at 12:00 AM Riyadh Time (which is exactly 21:00 / 9:00 PM UTC every day)
+SELECT cron.schedule('generate-daily-tasks', '0 21 * * *', 'SELECT public.generatetasks()');
