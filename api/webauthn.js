@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
-import { Buffer } from 'node:buffer';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -19,6 +17,8 @@ export default async function handler(req, res) {
     const passkeys = user.passkeys || [];
 
     try {
+        const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = await import('@simplewebauthn/server');
+
         if (action === 'generate-registration') {
             const options = await generateRegistrationOptions({
                 rpName: 'Kids Rewards App',
