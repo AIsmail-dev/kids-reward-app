@@ -45,7 +45,6 @@ export default function AdminKids() {
                 title: `[Exceptional] ${title}`,
                 reward: actualAmount,
                 recurrence: 'once',
-                task_type: 'general',
                 assigned_kid: selectedKid,
                 active: false
             })

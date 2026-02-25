@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react"
 import { supabase } from "../supabaseClient"
-import { FiCheckCircle, FiClock, FiXCircle } from "react-icons/fi"
+import { FiCheckCircle, FiClock, FiChevronDown, FiChevronUp } from "react-icons/fi"
 
 export default function AdminOccurrences() {
     const [occurrences, setOccurrences] = useState([])
     const [loading, setLoading] = useState(true)
-
-    // filter states optionally
-    // const [statusFilter, setStatusFilter] = useState('all')
+    const [expandedKids, setExpandedKids] = useState({})
+    const [expandedDates, setExpandedDates] = useState({})
 
     useEffect(() => {
         fetchOccurrences()
@@ -65,6 +64,19 @@ export default function AdminOccurrences() {
         }));
 
         setOccurrences(enrichedData);
+
+        // Auto-expand all by default
+        const initExpandedKids = {};
+        const initExpandedDates = {};
+
+        enrichedData.forEach(d => {
+            initExpandedKids[d.kid_name] = true;
+            initExpandedDates[`${d.kid_name}-${d.scheduled_date}`] = true;
+        });
+
+        setExpandedKids(initExpandedKids);
+        setExpandedDates(initExpandedDates);
+
         setLoading(false);
     }
 
@@ -100,6 +112,24 @@ export default function AdminOccurrences() {
         fetchOccurrences();
     }
 
+    const toggleKid = (kidName) => setExpandedKids(prev => ({ ...prev, [kidName]: !prev[kidName] }));
+    const toggleDate = (dateKey) => setExpandedDates(prev => ({ ...prev, [dateKey]: !prev[dateKey] }));
+
+    // Grouping: Kid -> Date -> Occurrences array
+    const grouped = occurrences.reduce((acc, occ) => {
+        const kidName = occ.kid_name;
+        const date = occ.scheduled_date;
+
+        if (!acc[kidName]) {
+            acc[kidName] = {};
+        }
+        if (!acc[kidName][date]) {
+            acc[kidName][date] = [];
+        }
+        acc[kidName][date].push(occ);
+        return acc;
+    }, {});
+
     return (
         <div style={{ padding: '20px' }}>
             <h1 style={{ marginBottom: '20px' }}>Task Occurrences 📋</h1>
@@ -107,51 +137,86 @@ export default function AdminOccurrences() {
             {loading ? (
                 <p>Loading occurrences...</p>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {occurrences.length === 0 && <p>No task occurrences found.</p>}
-                    {occurrences.map(occ => (
-                        <div key={occ.id} style={{
-                            background: '#fff',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            borderLeft: occ.status === 'waiting_parent' ? '4px solid #facc15' : occ.status === 'approved' || occ.status === 'completed' ? '4px solid #4ade80' : '4px solid #e5e7eb'
-                        }}>
-                            <div>
-                                <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{occ.tasks?.title}</h3>
-                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
-                                    {occ.kid_name} • {new Date(occ.scheduled_date).toLocaleDateString()}
-                                    {occ.completed_at ? `  (Time: ${new Date(occ.completed_at).toLocaleTimeString()})` : ''}
-                                    <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>• {occ.tasks?.reward} ر.س</span>
-                                </p>
-                                <div style={{ marginTop: '5px' }}>
-                                    {occ.status === 'pending' && <span style={{ color: '#6b7280', fontSize: '0.85rem' }}><FiClock /> Pending</span>}
-                                    {occ.status === 'waiting_parent' && <span style={{ color: '#ca8a04', fontSize: '0.85rem', fontWeight: 'bold' }}>Needs Approval 👀</span>}
-                                    {(occ.status === 'approved' || occ.status === 'completed') && <span style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 'bold' }}><FiCheckCircle /> Approved</span>}
-                                </div>
+
+                    {Object.entries(grouped).map(([kidName, dates]) => (
+                        <div key={kidName} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', background: '#f9fafb' }}>
+                            <div
+                                onClick={() => toggleKid(kidName)}
+                                style={{ background: '#e5e7eb', padding: '15px 20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            >
+                                <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#111827' }}>👩‍👦 {kidName}</h2>
+                                {expandedKids[kidName] ? <FiChevronUp size={24} /> : <FiChevronDown size={24} />}
                             </div>
 
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                {occ.status === 'waiting_parent' && (
-                                    <>
-                                        <button
-                                            onClick={() => approveTask(occ)}
-                                            style={{ background: '#4ade80', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                                        >
-                                            Approve
-                                        </button>
-                                        <button
-                                            onClick={() => rejectTask(occ.id)}
-                                            style={{ background: '#f87171', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-                                        >
-                                            Reject
-                                        </button>
-                                    </>
-                                )}
-                            </div>
+                            {expandedKids[kidName] && (
+                                <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {Object.entries(dates).map(([date, dailyOccs]) => {
+                                        const dateKey = `${kidName}-${date}`;
+                                        return (
+                                            <div key={date} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
+                                                <div
+                                                    onClick={() => toggleDate(dateKey)}
+                                                    style={{ background: '#f3f4f6', padding: '10px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                >
+                                                    <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+                                                    {expandedDates[dateKey] ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+                                                </div>
+
+                                                {expandedDates[dateKey] && (
+                                                    <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                        {dailyOccs.map((occ) => (
+                                                            <div key={occ.id} style={{
+                                                                background: '#fff',
+                                                                padding: '15px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                borderLeft: occ.status === 'waiting_parent' ? '4px solid #facc15' : occ.status === 'approved' || occ.status === 'completed' ? '4px solid #4ade80' : '4px solid #e5e7eb',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between'
+                                                            }}>
+                                                                <div>
+                                                                    <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{occ.tasks?.title}</h4>
+                                                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
+                                                                        {occ.completed_at ? `Completed at: ${new Date(occ.completed_at).toLocaleTimeString()}` : 'No completion time'}
+                                                                        <span style={{ fontWeight: 'bold', marginLeft: '10px', color: '#B45309' }}>• {occ.tasks?.reward} ر.س</span>
+                                                                    </p>
+                                                                    <div style={{ marginTop: '5px' }}>
+                                                                        {occ.status === 'pending' && <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: 'bold' }}><FiClock /> Pending</span>}
+                                                                        {occ.status === 'waiting_parent' && <span style={{ color: '#ca8a04', fontSize: '0.75rem', fontWeight: 'bold' }}>Needs Approval 👀</span>}
+                                                                        {(occ.status === 'approved' || occ.status === 'completed') && <span style={{ color: '#16a34a', fontSize: '0.75rem', fontWeight: 'bold' }}><FiCheckCircle /> Approved</span>}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                                    {occ.status === 'waiting_parent' && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => approveTask(occ)}
+                                                                                style={{ background: '#4ade80', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                                                            >
+                                                                                Approve
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => rejectTask(occ.id)}
+                                                                                style={{ background: '#f87171', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                                                            >
+                                                                                Reject
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
