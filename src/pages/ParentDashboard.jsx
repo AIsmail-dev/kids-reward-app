@@ -25,20 +25,44 @@ export default function ParentDashboard() {
     }, []);
 
     async function fetchCompletedTasks() {
-        const { data } = await supabase
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+
+        // Attempt fetch with completed_at tracking
+        let res = await supabase
             .from('task_occurrences')
             .select(`
-        id,
-        kid_id,
-        scheduled_date,
-        tasks:task_id (
-          title,
-          reward,
-          assigned_kid
-        )
-      `)
+                id,
+                kid_id,
+                scheduled_date,
+                completed_at,
+                tasks:task_id (
+                  title,
+                  reward,
+                  assigned_kid
+                )
+            `)
             .in('status', ['completed', 'waiting_parent'])
-            .eq('scheduled_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }));
+            .eq('scheduled_date', todayStr);
+
+        // Fallback gracefully if completed_at column isn't tracked yet in DB
+        if (res.error && res.error.message?.includes('completed_at')) {
+            res = await supabase
+                .from('task_occurrences')
+                .select(`
+                    id,
+                    kid_id,
+                    scheduled_date,
+                    tasks:task_id (
+                      title,
+                      reward,
+                      assigned_kid
+                    )
+                `)
+                .in('status', ['completed', 'waiting_parent'])
+                .eq('scheduled_date', todayStr);
+        }
+
+        const data = res.data;
 
         const { data: userData } = await supabase.from('users').select('id, name');
         const userMap = {};
@@ -49,7 +73,7 @@ export default function ParentDashboard() {
         if (data) {
             const enrichedData = data.map(d => ({
                 ...d,
-                users: { name: userMap[d.kid_id] }
+                users: { name: userMap[d.kid_id] || userMap[d.tasks?.assigned_kid] || 'Unknown Kid' }
             }));
             setCompleted(enrichedData);
         } else {
@@ -147,7 +171,7 @@ export default function ParentDashboard() {
                                     </div>
                                 </div>
                                 <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
-                                    {t.users?.name || 'Unknown'} • {new Date(t.scheduled_date).toLocaleDateString()}
+                                    {t.users?.name || 'Unknown'} • {t.completed_at ? new Date(t.completed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh', hour: 'numeric', minute: '2-digit' }) : new Date(t.scheduled_date).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}
                                 </p>
                                 <div style={{ marginTop: "12px" }}>
                                     <button className="button button-secondary" onClick={() => approveTask(t)}>

@@ -64,12 +64,22 @@ export default function KidDashboard() {
   }
 
   async function requestApproval(id, taskTitle) {
-    const { error } = await supabase
+    let res = await supabase
       .from('task_occurrences')
-      .update({ status: 'waiting_parent' })
+      .update({
+        status: 'waiting_parent',
+        completed_at: new Date().toISOString()
+      })
       .eq('id', id);
 
-    if (error) alert("Oops! Something went wrong.");
+    if (res.error && res.error.message?.includes('completed_at')) {
+      res = await supabase
+        .from('task_occurrences')
+        .update({ status: 'waiting_parent' })
+        .eq('id', id);
+    }
+
+    if (res.error) alert("Oops! Something went wrong.");
     else {
       alert("Sent to parent for approval! 🚀");
       sendNotification({
