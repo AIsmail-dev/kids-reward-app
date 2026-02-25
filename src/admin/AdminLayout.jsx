@@ -39,6 +39,22 @@ export default function AdminLayout() {
                 </div>
 
                 <div
+                    className={`admin-nav-item ${loc.pathname === '/admin/occurrences' ? 'active' : ''}`}
+                    onClick={() => nav('/admin/occurrences')}
+                >
+                    <FiList size={20} />
+                    <span>Occurrences (History/Approval)</span>
+                </div>
+
+                <div
+                    className={`admin-nav-item ${loc.pathname === '/admin/kids' ? 'active' : ''}`}
+                    onClick={() => nav('/admin/kids')}
+                >
+                    <FiSettings size={20} />
+                    <span>Kids (Exceptions)</span>
+                </div>
+
+                <div
                     className={`admin-nav-item ${loc.pathname === '/admin/settings' ? 'active' : ''}`}
                     onClick={() => nav('/admin/settings')}
                 >

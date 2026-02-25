@@ -8,6 +8,8 @@ import Login from "./pages/Login"
 import AdminLayout from "./admin/AdminLayout"
 import AdminTasks from "./admin/AdminTasks"
 import AdminSettings from "./admin/AdminSettings"
+import AdminOccurrences from "./admin/AdminOccurrences"
+import AdminKids from "./admin/AdminKids"
 
 function App() {
     return (
@@ -22,6 +24,8 @@ function App() {
                 <Route path="/admin" element={<AdminLayout />}>
                     <Route index element={<AdminTasks />} />
                     <Route path="settings" element={<AdminSettings />} />
+                    <Route path="occurrences" element={<AdminOccurrences />} />
+                    <Route path="kids" element={<AdminKids />} />
                 </Route>
 
             </Routes>
