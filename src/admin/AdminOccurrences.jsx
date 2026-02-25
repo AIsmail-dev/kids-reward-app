@@ -52,6 +52,8 @@ export default function AdminOccurrences() {
 
         const occData = res.data || [];
 
+        const { data: userData } = await supabase.from('users').select('id, name, balance');
+        const userMap = {};
         const userWalletMap = {};
         if (userData) {
             userData.forEach(u => {
