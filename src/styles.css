@@ -19,7 +19,8 @@ body {
   font-family: 'Nunito', 'Segoe UI', sans-serif;
   background: var(--bg-color);
   color: var(--text-main);
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
+  /* Active swipe/pull to refresh natively for Mobile */
 }
 
 * {
