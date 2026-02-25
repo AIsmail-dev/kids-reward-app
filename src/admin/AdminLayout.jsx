@@ -62,7 +62,7 @@ export default function AdminLayout() {
                     <span>Settings</span>
                 </div>
 
-                <div style={{ marginTop: 'auto' }}>
+                <div className="admin-logout-wrap">
                     <div className="admin-nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
                         <FiLogOut size={20} />
                         <span>Logout</span>

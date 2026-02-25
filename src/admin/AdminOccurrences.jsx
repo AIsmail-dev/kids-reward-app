@@ -213,7 +213,7 @@ export default function AdminOccurrences() {
                                                 {expandedDates[dateKey] && (
                                                     <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                         {dailyOccs.map((occ) => (
-                                                            <div key={occ.id} style={{
+                                                            <div key={occ.id} className="responsive-flex-card" style={{
                                                                 background: '#fff',
                                                                 padding: '15px',
                                                                 borderRadius: '8px',
@@ -236,7 +236,7 @@ export default function AdminOccurrences() {
                                                                     </div>
                                                                 </div>
 
-                                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                                <div className="responsive-button-group" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
 
                                                                     {occ.status === 'pending' && (
                                                                         <select

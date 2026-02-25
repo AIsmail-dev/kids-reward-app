@@ -146,7 +146,7 @@ export default function AdminTasks() {
                 </form>
             </div>
 
-            <div className="admin-card" style={{ padding: '0', overflow: 'hidden' }}>
+            <div className="admin-card" style={{ padding: '0', overflowX: 'auto' }}>
                 <table className="admin-table">
                     <thead>
                         <tr>

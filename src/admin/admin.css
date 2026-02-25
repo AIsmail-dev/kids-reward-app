@@ -152,3 +152,91 @@
     font-weight: 500;
     color: #475569;
 }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .admin-container {
+        flex-direction: column;
+    }
+
+    .admin-sidebar {
+        width: 100%;
+        padding: 10px 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        align-items: center;
+        border-bottom: 2px solid #1e1e2d;
+    }
+
+    .admin-sidebar h2 {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 1.2rem;
+    }
+
+    .admin-nav-item {
+        padding: 10px;
+        font-size: 0.85rem;
+        gap: 5px;
+        flex: 1;
+        justify-content: center;
+        text-align: center;
+        border-left: none;
+        border-bottom: 4px solid transparent;
+        flex-direction: column;
+    }
+
+    .admin-nav-item.active {
+        border-left: none;
+        border-bottom: 4px solid #4ade80;
+    }
+
+    .admin-content {
+        padding: 15px;
+    }
+
+    .admin-header h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Override dynamic injected styles using flex for mobile tables/records */
+    .admin-table th,
+    .admin-table td {
+        padding: 8px 10px;
+    }
+
+    .admin-logout-wrap {
+        margin-top: 0 !important;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .responsive-flex-card {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 15px;
+    }
+
+    .responsive-flex-card>div {
+        width: 100%;
+    }
+
+    .responsive-button-group {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .responsive-button-group select,
+    .responsive-button-group button {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+}
+
+.admin-logout-wrap {
+    margin-top: auto;
+}
