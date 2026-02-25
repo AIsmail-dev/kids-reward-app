@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { supabase } from "../supabaseClient"
-import { FiCheckCircle, FiClock, FiChevronDown, FiChevronUp } from "react-icons/fi"
+import { FiCheckCircle, FiClock, FiChevronDown, FiChevronUp, FiRefreshCw } from "react-icons/fi"
 
 export default function AdminOccurrences() {
     const [occurrences, setOccurrences] = useState([])
@@ -8,9 +8,46 @@ export default function AdminOccurrences() {
     const [expandedKids, setExpandedKids] = useState({})
     const [expandedDates, setExpandedDates] = useState({})
 
+    const [refreshing, setRefreshing] = useState(false);
+    const [pullDist, setPullDist] = useState(0);
+    const [startY, setStartY] = useState(0);
+
     useEffect(() => {
         fetchOccurrences()
     }, [])
+
+    const handleTouchStart = (e) => {
+        if (window.scrollY <= 0) {
+            setStartY(e.touches[0].clientY);
+        } else {
+            setStartY(0);
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (!startY) return;
+        const currentY = e.touches[0].clientY;
+        const dist = currentY - startY;
+        if (dist > 0 && window.scrollY <= 0) {
+            setPullDist(Math.min(dist * 0.4, 80));
+        } else {
+            setPullDist(0);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (pullDist > 50 && !refreshing) {
+            setRefreshing(true);
+            setPullDist(50);
+            fetchOccurrences().finally(() => {
+                setPullDist(0);
+                setTimeout(() => setRefreshing(false), 300);
+            });
+        } else {
+            setPullDist(0);
+        }
+        setStartY(0);
+    };
 
     async function fetchOccurrences() {
         setLoading(true)
@@ -194,7 +231,31 @@ export default function AdminOccurrences() {
     }, {});
 
     return (
-        <div style={{ padding: '20px' }}>
+        <div
+            style={{ padding: '20px', minHeight: '100%' }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
+            <div style={{
+                height: `${pullDist}px`,
+                transition: refreshing || pullDist === 0 ? 'height 0.3s ease' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                color: '#6b7280',
+                gap: '8px'
+            }}>
+                <FiRefreshCw size={18} style={{
+                    transform: `rotate(${refreshing ? pullDist * 20 : pullDist * 3}deg)`,
+                    transition: refreshing ? 'transform 1s linear infinite' : 'none'
+                }} />
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    {refreshing ? 'Refreshing...' : pullDist > 50 ? 'Release to refresh' : 'Pull down to refresh'}
+                </span>
+            </div>
+
             <h1 style={{ marginBottom: '20px' }}>Task Occurrences 📋</h1>
 
             {loading ? (
