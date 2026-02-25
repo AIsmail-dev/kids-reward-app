@@ -52,26 +52,35 @@ export default function AdminOccurrences() {
 
         const occData = res.data || [];
 
-        const { data: userData } = await supabase.from('users').select('id, name');
-        const userMap = {};
+        const userWalletMap = {};
         if (userData) {
-            userData.forEach(u => userMap[u.id] = u.name);
+            userData.forEach(u => {
+                userMap[u.id] = u.name;
+                userWalletMap[u.id] = u.balance || 0;
+            });
         }
 
         const enrichedData = occData.map(d => ({
             ...d,
-            kid_name: userMap[d.kid_id] || userMap[d.tasks?.assigned_kid] || 'Unknown Kid'
+            kid_name: userMap[d.kid_id] || userMap[d.tasks?.assigned_kid] || 'Unknown Kid',
+            kid_balance: userWalletMap[d.kid_id] || userWalletMap[d.tasks?.assigned_kid] || 0
         }));
 
         setOccurrences(enrichedData);
 
-        // Auto-expand all by default
+        // Expand Kids but collapse Dates by default (except today's date)
         const initExpandedKids = {};
         const initExpandedDates = {};
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
 
         enrichedData.forEach(d => {
             initExpandedKids[d.kid_name] = true;
-            initExpandedDates[`${d.kid_name}-${d.scheduled_date}`] = true;
+            // Only expand today's exact date string automatically:
+            if (d.scheduled_date === todayStr) {
+                initExpandedDates[`${d.kid_name}-${d.scheduled_date}`] = true;
+            } else {
+                initExpandedDates[`${d.kid_name}-${d.scheduled_date}`] = false;
+            }
         });
 
         setExpandedKids(initExpandedKids);
@@ -181,7 +190,9 @@ export default function AdminOccurrences() {
                                 onClick={() => toggleKid(kidName)}
                                 style={{ background: '#e5e7eb', padding: '15px 20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                             >
-                                <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#111827' }}>👩‍👦 {kidName}</h2>
+                                <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#111827' }}>
+                                    👩‍👦 {kidName} <span style={{ fontSize: '1rem', color: '#B45309', marginLeft: '10px' }}>(Balance: {dates[Object.keys(dates)[0]][0]?.kid_balance} ر.س)</span>
+                                </h2>
                                 {expandedKids[kidName] ? <FiChevronUp size={24} /> : <FiChevronDown size={24} />}
                             </div>
 
@@ -196,7 +207,12 @@ export default function AdminOccurrences() {
                                                     style={{ background: '#f3f4f6', padding: '10px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                                 >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                        <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+                                                        <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>
+                                                            📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                                            <span style={{ fontSize: '0.9rem', color: '#16a34a', marginLeft: '15px' }}>
+                                                                (+{dailyOccs.filter(o => o.status === 'approved' || o.status === 'completed').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ر.س Earned)
+                                                            </span>
+                                                        </h3>
 
                                                         {dailyOccs.some(o => o.status === 'waiting_parent' || o.status === 'pending') && (
                                                             <button
