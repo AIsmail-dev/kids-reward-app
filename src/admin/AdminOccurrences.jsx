@@ -112,6 +112,41 @@ export default function AdminOccurrences() {
         fetchOccurrences();
     }
 
+    async function approveAllTasks(dailyOccs) {
+        const toApprove = dailyOccs.filter(o => o.status === 'waiting_parent');
+        if (toApprove.length === 0) return;
+        if (!confirm(`Are you sure you want to approve and pay out ${toApprove.length} task(s) at once?`)) return;
+
+        // Process all transactions concurrently
+        await Promise.all(toApprove.map(async (task) => {
+            const kidToReward = task.kid_id || task.tasks?.assigned_kid;
+            await supabase.from('wallet_transactions').insert({
+                kid_id: kidToReward, amount: task.tasks?.reward, type: 'reward'
+            });
+            await supabase.from('task_occurrences').update({ status: 'approved' }).eq('id', task.id);
+        }));
+
+        fetchOccurrences();
+    }
+
+    async function forceStatusChange(task, newStatus) {
+        if (!newStatus || newStatus === task.status) return;
+        if (!confirm(`Are you sure you want to forcefully change this task to '${newStatus}'?`)) return;
+
+        if (newStatus === 'approved') {
+            const kidToReward = task.kid_id || task.tasks?.assigned_kid;
+            await supabase.from('wallet_transactions').insert({
+                kid_id: kidToReward, amount: task.tasks?.reward, type: 'reward'
+            });
+            await supabase.from('task_occurrences').update({ status: 'approved' }).eq('id', task.id);
+        } else {
+            // Normal update without monetary payout
+            await supabase.from('task_occurrences').update({ status: newStatus }).eq('id', task.id);
+        }
+
+        fetchOccurrences();
+    }
+
     const toggleKid = (kidName) => setExpandedKids(prev => ({ ...prev, [kidName]: !prev[kidName] }));
     const toggleDate = (dateKey) => setExpandedDates(prev => ({ ...prev, [dateKey]: !prev[dateKey] }));
 
@@ -160,7 +195,18 @@ export default function AdminOccurrences() {
                                                     onClick={() => toggleDate(dateKey)}
                                                     style={{ background: '#f3f4f6', padding: '10px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                                 >
-                                                    <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                        <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+
+                                                        {dailyOccs.some(o => o.status === 'waiting_parent') && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); approveAllTasks(dailyOccs); }}
+                                                                style={{ background: '#10b981', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                                            >
+                                                                Approve All Pending ✅
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                     {expandedDates[dateKey] ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
                                                 </div>
 
@@ -190,7 +236,21 @@ export default function AdminOccurrences() {
                                                                     </div>
                                                                 </div>
 
-                                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+
+                                                                    {occ.status === 'pending' && (
+                                                                        <select
+                                                                            value=""
+                                                                            onChange={(e) => forceStatusChange(occ, e.target.value)}
+                                                                            style={{ border: '1px solid #d1d5db', borderRadius: '6px', padding: '6px', fontSize: '0.85rem', background: '#f9fafb', cursor: 'pointer' }}
+                                                                        >
+                                                                            <option value="" disabled>Change Status (Force)...</option>
+                                                                            <option value="waiting_parent">Force ➡️ Needs Approval</option>
+                                                                            <option value="completed">Bypass ➡️ Completed (No Pay)</option>
+                                                                            <option value="approved">Force ➡️ Approved & Paid</option>
+                                                                        </select>
+                                                                    )}
+
                                                                     {occ.status === 'waiting_parent' && (
                                                                         <>
                                                                             <button
