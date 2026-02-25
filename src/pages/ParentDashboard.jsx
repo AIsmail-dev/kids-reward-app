@@ -37,7 +37,8 @@ export default function ParentDashboard() {
           assigned_kid
         )
       `)
-            .in('status', ['completed', 'waiting_parent']); // Support both statuses in case of old data
+            .in('status', ['completed', 'waiting_parent'])
+            .eq('scheduled_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }));
 
         const { data: userData } = await supabase.from('users').select('id, name');
         const userMap = {};

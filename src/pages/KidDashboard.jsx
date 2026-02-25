@@ -29,7 +29,7 @@ export default function KidDashboard() {
   }, []);
 
   async function fetchTasks() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
 
     const { data, error } = await supabase
       .from('task_occurrences')
