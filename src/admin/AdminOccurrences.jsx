@@ -113,7 +113,7 @@ export default function AdminOccurrences() {
     }
 
     async function approveAllTasks(dailyOccs) {
-        const toApprove = dailyOccs.filter(o => o.status === 'waiting_parent');
+        const toApprove = dailyOccs.filter(o => o.status === 'waiting_parent' || o.status === 'pending');
         if (toApprove.length === 0) return;
         if (!confirm(`Are you sure you want to approve and pay out ${toApprove.length} task(s) at once?`)) return;
 
@@ -198,12 +198,12 @@ export default function AdminOccurrences() {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                         <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
 
-                                                        {dailyOccs.some(o => o.status === 'waiting_parent') && (
+                                                        {dailyOccs.some(o => o.status === 'waiting_parent' || o.status === 'pending') && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); approveAllTasks(dailyOccs); }}
                                                                 style={{ background: '#10b981', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
                                                             >
-                                                                Approve All Pending ✅
+                                                                Approve All Open ✅
                                                             </button>
                                                         )}
                                                     </div>
