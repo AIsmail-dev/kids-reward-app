@@ -4,5 +4,11 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/cron-tasks",
+            "schedule": "0 21 * * *"
+        }
     ]
 }
