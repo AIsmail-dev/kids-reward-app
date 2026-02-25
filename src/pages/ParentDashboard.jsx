@@ -31,7 +31,6 @@ export default function ParentDashboard() {
         id,
         kid_id,
         scheduled_date,
-        users ( name ),
         tasks:task_id (
           title,
           reward,
@@ -40,7 +39,21 @@ export default function ParentDashboard() {
       `)
             .in('status', ['completed', 'waiting_parent']); // Support both statuses in case of old data
 
-        setCompleted(data);
+        const { data: userData } = await supabase.from('users').select('id, name');
+        const userMap = {};
+        if (userData) {
+            userData.forEach(u => userMap[u.id] = u.name);
+        }
+
+        if (data) {
+            const enrichedData = data.map(d => ({
+                ...d,
+                users: { name: userMap[d.kid_id] }
+            }));
+            setCompleted(enrichedData);
+        } else {
+            setCompleted([]);
+        }
     }
 
     async function fetchWithdrawals() {
