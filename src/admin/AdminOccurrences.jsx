@@ -10,7 +10,9 @@ export default function AdminOccurrences() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [pullDist, setPullDist] = useState(0);
-    const [startY, setStartY] = useState(0);
+    const userStr = localStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const adminName = user?.name || "Admin";
 
     useEffect(() => {
         fetchOccurrences()
@@ -60,6 +62,7 @@ export default function AdminOccurrences() {
                 scheduled_date,
                 status,
                 completed_at,
+                updated_by_name,
                 tasks:task_id (
                   title,
                   reward,
@@ -160,7 +163,7 @@ export default function AdminOccurrences() {
 
         await supabase
             .from('task_occurrences')
-            .update({ status: 'approved' })
+            .update({ status: 'approved', completed_at: task.completed_at || new Date().toISOString(), updated_by_name: adminName })
             .eq('id', task.id);
 
         fetchOccurrences();
@@ -171,7 +174,7 @@ export default function AdminOccurrences() {
 
         await supabase
             .from('task_occurrences')
-            .update({ status: 'pending' }) // revert to pending
+            .update({ status: 'pending', completed_at: null, updated_by_name: adminName }) // revert to pending
             .eq('id', taskOccurrenceId);
 
         fetchOccurrences();
@@ -188,7 +191,7 @@ export default function AdminOccurrences() {
             await supabase.from('wallet_transactions').insert({
                 kid_id: kidToReward, amount: task.tasks?.reward, type: 'reward'
             });
-            await supabase.from('task_occurrences').update({ status: 'approved' }).eq('id', task.id);
+            await supabase.from('task_occurrences').update({ status: 'approved', completed_at: task.completed_at || new Date().toISOString(), updated_by_name: adminName }).eq('id', task.id);
         }));
 
         fetchOccurrences();
@@ -198,15 +201,22 @@ export default function AdminOccurrences() {
         if (!newStatus || newStatus === task.status) return;
         if (!confirm(`Are you sure you want to forcefully change this task to '${newStatus}'?`)) return;
 
+        const payload = { status: newStatus, updated_by_name: adminName };
+        if (newStatus === 'pending') {
+            payload.completed_at = null;
+        } else {
+            payload.completed_at = task.completed_at || new Date().toISOString();
+        }
+
         if (newStatus === 'approved') {
             const kidToReward = task.kid_id || task.tasks?.assigned_kid;
             await supabase.from('wallet_transactions').insert({
                 kid_id: kidToReward, amount: task.tasks?.reward, type: 'reward'
             });
-            await supabase.from('task_occurrences').update({ status: 'approved' }).eq('id', task.id);
+            await supabase.from('task_occurrences').update(payload).eq('id', task.id);
         } else {
             // Normal update without monetary payout
-            await supabase.from('task_occurrences').update({ status: newStatus }).eq('id', task.id);
+            await supabase.from('task_occurrences').update(payload).eq('id', task.id);
         }
 
         fetchOccurrences();
@@ -290,7 +300,7 @@ export default function AdminOccurrences() {
                                                         <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>
                                                             📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                                             <span style={{ fontSize: '0.9rem', color: '#16a34a', marginLeft: '15px' }}>
-                                                                (+{dailyOccs.filter(o => o.status === 'approved' || o.status === 'completed').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ر.س Earned)
+                                                                (+{dailyOccs.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ر.س Earned)
                                                             </span>
                                                         </h3>
 
@@ -314,7 +324,7 @@ export default function AdminOccurrences() {
                                                                 padding: '15px',
                                                                 borderRadius: '8px',
                                                                 border: '1px solid #e5e7eb',
-                                                                borderLeft: occ.status === 'waiting_parent' ? '4px solid #facc15' : occ.status === 'approved' || occ.status === 'completed' ? '4px solid #4ade80' : '4px solid #e5e7eb',
+                                                                borderLeft: occ.status === 'waiting_parent' ? '4px solid #facc15' : occ.status === 'approved' ? '4px solid #4ade80' : occ.status === 'completed' ? '4px solid #60a5fa' : '4px solid #e5e7eb',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'space-between'
@@ -322,13 +332,15 @@ export default function AdminOccurrences() {
                                                                 <div>
                                                                     <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{occ.tasks?.title}</h4>
                                                                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
-                                                                        {occ.completed_at ? `Completed at: ${new Date(occ.completed_at).toLocaleTimeString()}` : 'No completion time'}
+                                                                        {occ.completed_at ? `Requested: ${new Date(occ.completed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'No request time'}
+                                                                        {occ.updated_by_name && <span style={{ marginLeft: '6px', fontWeight: 'bold', color: '#6366f1' }}>(by {occ.updated_by_name})</span>}
                                                                         <span style={{ fontWeight: 'bold', marginLeft: '10px', color: '#B45309' }}>• {occ.tasks?.reward} ر.س</span>
                                                                     </p>
                                                                     <div style={{ marginTop: '5px' }}>
                                                                         {occ.status === 'pending' && <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: 'bold' }}><FiClock /> Pending</span>}
                                                                         {occ.status === 'waiting_parent' && <span style={{ color: '#ca8a04', fontSize: '0.75rem', fontWeight: 'bold' }}>Needs Approval 👀</span>}
-                                                                        {(occ.status === 'approved' || occ.status === 'completed') && <span style={{ color: '#16a34a', fontSize: '0.75rem', fontWeight: 'bold' }}><FiCheckCircle /> Approved</span>}
+                                                                        {occ.status === 'approved' && <span style={{ color: '#16a34a', fontSize: '0.75rem', fontWeight: 'bold' }}><FiCheckCircle /> Approved & Paid</span>}
+                                                                        {occ.status === 'completed' && <span style={{ color: '#3b82f6', fontSize: '0.75rem', fontWeight: 'bold' }}><FiCheckCircle /> Approved (No Pay)</span>}
                                                                     </div>
                                                                 </div>
 

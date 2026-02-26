@@ -35,13 +35,14 @@ export default function ParentDashboard() {
                 kid_id,
                 scheduled_date,
                 completed_at,
+                updated_by_name,
                 tasks:task_id (
                   title,
                   reward,
                   assigned_kid
                 )
             `)
-            .in('status', ['completed', 'waiting_parent'])
+            .eq('status', 'waiting_parent')
             .eq('scheduled_date', todayStr);
 
         // Fallback gracefully if completed_at column isn't tracked yet in DB
@@ -58,7 +59,7 @@ export default function ParentDashboard() {
                       assigned_kid
                     )
                 `)
-                .in('status', ['completed', 'waiting_parent'])
+                .eq('status', 'waiting_parent')
                 .eq('scheduled_date', todayStr);
         }
 
@@ -103,7 +104,7 @@ export default function ParentDashboard() {
 
         await supabase
             .from('task_occurrences')
-            .update({ status: 'approved' })
+            .update({ status: 'approved', completed_at: task.completed_at || new Date().toISOString(), updated_by_name: user?.name || "Parent" })
             .eq('id', task.id);
 
         sendNotification({
@@ -171,7 +172,8 @@ export default function ParentDashboard() {
                                     </div>
                                 </div>
                                 <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
-                                    {t.users?.name || 'Unknown'} • {t.completed_at ? new Date(t.completed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh', hour: 'numeric', minute: '2-digit' }) : new Date(t.scheduled_date).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}
+                                    {t.users?.name || 'Unknown'} • {t.completed_at ? `Requested: ${new Date(t.completed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : `Scheduled: ${new Date(t.scheduled_date).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`}
+                                    {t.updated_by_name && <span style={{ marginLeft: '6px', fontWeight: 'bold', color: '#6366f1' }}>(by {t.updated_by_name})</span>}
                                 </p>
                                 <div style={{ marginTop: "12px" }}>
                                     <button className="button button-secondary" onClick={() => approveTask(t)}>

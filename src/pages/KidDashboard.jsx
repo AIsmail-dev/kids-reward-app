@@ -64,15 +64,15 @@ export default function KidDashboard() {
   }
 
   async function requestApproval(id, taskTitle) {
-    let res = await supabase
-      .from('task_occurrences')
-      .update({
-        status: 'waiting_parent',
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', id);
+    let payload = {
+      status: 'waiting_parent',
+      completed_at: new Date().toISOString(),
+      updated_by_name: user?.name || "Kid"
+    };
 
-    if (res.error && res.error.message?.includes('completed_at')) {
+    let res = await supabase.from('task_occurrences').update(payload).eq('id', id);
+
+    if (res.error && (res.error.message?.includes('completed_at') || res.error.message?.includes('updated_by_name'))) {
       res = await supabase
         .from('task_occurrences')
         .update({ status: 'waiting_parent' })
@@ -181,6 +181,12 @@ export default function KidDashboard() {
                     {t.status === "approved" && (
                       <div style={{ textAlign: "center", padding: "10px", background: "#DCFCE7", color: "#16A34A", borderRadius: "12px", fontWeight: "bold" }}>
                         Approved & Paid! 🎉
+                      </div>
+                    )}
+
+                    {t.status === "completed" && (
+                      <div style={{ textAlign: "center", padding: "10px", background: "#DBEAFE", color: "#2563EB", borderRadius: "12px", fontWeight: "bold" }}>
+                        Approved (No Pay)
                       </div>
                     )}
                   </div>
