@@ -27,15 +27,15 @@ export async function requestPushPermission(userId) {
 
     if (Notification.permission === 'granted') {
         try {
-            const registration = await navigator.serviceWorker.register('/push-sw.js');
+            await navigator.serviceWorker.register('/push-sw.js');
             await navigator.serviceWorker.ready;
-            const activeReg = await navigator.serviceWorker.getRegistration();
-            if (!activeReg) return false;
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) return false;
 
-            let subscription = await activeReg.pushManager.getSubscription();
+            let subscription = await registration.pushManager.getSubscription();
 
             if (!subscription) {
-                subscription = await activeReg.pushManager.subscribe({
+                subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
                 });
@@ -53,11 +53,17 @@ export async function requestPushPermission(userId) {
                     user_id: userId,
                     subscription: subJson
                 });
-                if (error) console.error("Error saving subscription:", error);
+                if (error) {
+                    alert("Supabase Insert Error: " + error.message);
+                } else {
+                    alert("Subscription saved successfully to DB!");
+                }
+            } else {
+                alert("Subscription exists in DB.");
             }
             return true;
         } catch (e) {
-            console.error("Push registration failed", e);
+            alert("Push Error: " + e.message);
             return false;
         }
     }
