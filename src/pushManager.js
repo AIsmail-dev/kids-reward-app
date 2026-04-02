@@ -29,25 +29,31 @@ export async function requestPushPermission(userId) {
         try {
             const registration = await navigator.serviceWorker.register('/push-sw.js');
             await navigator.serviceWorker.ready;
-            let subscription = await registration.pushManager.getSubscription();
+            const activeReg = await navigator.serviceWorker.getRegistration();
+            if (!activeReg) return false;
+
+            let subscription = await activeReg.pushManager.getSubscription();
 
             if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
+                subscription = await activeReg.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
                 });
             }
 
+            const subJson = subscription.toJSON();
+            console.log("Saving push sub for user", userId, subJson);
+
             // Check if it's already in the database
             const { data } = await supabase.from('push_subscriptions').select('*').eq('user_id', userId);
-            const subString = JSON.stringify(subscription);
-            const exists = data?.find(sub => JSON.stringify(sub.subscription) === subString);
+            const exists = data?.find(sub => sub.subscription?.endpoint === subJson.endpoint);
 
             if (!exists) {
-                await supabase.from('push_subscriptions').insert({
+                const { error } = await supabase.from('push_subscriptions').insert({
                     user_id: userId,
-                    subscription: subscription
+                    subscription: subJson
                 });
+                if (error) console.error("Error saving subscription:", error);
             }
             return true;
         } catch (e) {

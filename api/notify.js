@@ -30,10 +30,18 @@ export default async function handler(req, res) {
         if (subErr || !subs) return res.status(500).json({ error: subErr });
 
         const payload = JSON.stringify({ title, body: message, url: url || '/', type: type || 'default' });
-        const promises = subs.map(s => webpush.sendNotification(s.subscription, payload).catch(e => console.error("Push Error", e)));
+        const results = await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
+        
+        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        const failCount = results.filter(r => r.status === 'rejected').length;
 
-        await Promise.all(promises);
-        return res.status(200).json({ success: true, count: subs.length });
+        results.forEach((r, idx) => {
+            if (r.status === 'rejected') {
+                console.error(`Push Failure for user ${userIds[idx]}:`, r.reason);
+            }
+        });
+
+        return res.status(200).json({ success: true, count: successCount, failed: failCount });
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
