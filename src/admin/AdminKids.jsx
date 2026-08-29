@@ -12,7 +12,7 @@ export default function AdminKids() {
         async function fetchKids() {
             const { data } = await supabase
                 .from('users')
-                .select('*')
+                .select('id,name,role')
                 .eq('role', 'kid')
 
             if (data && data.length > 0) {
@@ -133,7 +133,7 @@ export default function AdminKids() {
                     onChange={e => setTitle(e.target.value)}
                 />
 
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Amount (ر.س)</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Points</label>
                 <input
                     className="user-select"
                     style={{ width: '100%', marginBottom: '20px' }}

@@ -5,7 +5,9 @@ import { requestPushPermission, sendNotification } from "../pushManager";
 
 export default function ParentDashboard() {
     const [completed, setCompleted] = useState([]);
-    const [withdrawals, setWithdrawals] = useState([]);
+    const [requests, setRequests] = useState([]);
+    const [toFulfill, setToFulfill] = useState([]);
+    const [kidNames, setKidNames] = useState({});
     const [activeTab, setActiveTab] = useState("approvals");
     const nav = useNavigate();
 
@@ -17,7 +19,7 @@ export default function ParentDashboard() {
 
     useEffect(() => {
         fetchCompletedTasks();
-        fetchWithdrawals();
+        fetchRequests();
 
         if (isPushSupported && Notification.permission === 'granted') {
             requestPushPermission(user?.id);
@@ -82,13 +84,23 @@ export default function ParentDashboard() {
         }
     }
 
-    async function fetchWithdrawals() {
-        const { data } = await supabase
-            .from('withdrawals')
-            .select('*')
-            .eq('status', 'pending');
+    async function fetchRequests() {
+        const { data: userData } = await supabase.from('users').select('id, name');
+        const nameMap = {};
+        userData?.forEach(u => nameMap[u.id] = u.name);
+        setKidNames(nameMap);
 
-        setWithdrawals(data);
+        const { data: pending } = await supabase
+            .from('wallet_requests')
+            .select('*, money_destinations(name)')
+            .eq('status', 'pending');
+        setRequests(pending || []);
+
+        const { data: approved } = await supabase
+            .from('wallet_requests')
+            .select('*, money_destinations(name)')
+            .eq('status', 'approved');
+        setToFulfill(approved || []);
     }
 
     async function approveTask(task) {
@@ -109,7 +121,7 @@ export default function ParentDashboard() {
 
         sendNotification({
             title: 'Task Approved! 🌟',
-            message: `Your parent approved "${task.tasks?.title}" and you earned ${task.tasks?.reward} ر.س!`,
+            message: `Your parent approved "${task.tasks?.title}" and you earned ${task.tasks?.reward} points!`,
             targetKidId: kidToReward,
             url: '/login',
             type: 'notify_kid'
@@ -118,21 +130,69 @@ export default function ParentDashboard() {
         fetchCompletedTasks();
     }
 
-    async function approveWithdrawal(w) {
+    async function approveRequest(r) {
         await supabase
             .from('wallet_transactions')
             .insert({
-                kid_id: w.kid_id,
-                amount: -w.amount,
-                type: 'withdraw'
+                kid_id: r.kid_id,
+                wallet: r.wallet,
+                amount: -r.amount,
+                type: 'withdraw',
+                request_id: r.id
             });
 
         await supabase
-            .from('withdrawals')
+            .from('wallet_requests')
             .update({ status: 'approved' })
-            .eq('id', w.id);
+            .eq('id', r.id);
 
-        fetchWithdrawals();
+        const kidName = kidNames[r.kid_id] || 'Your kid';
+        const isMoney = r.wallet === 'money';
+        const what = isMoney
+            ? `${r.amount} to ${r.money_destinations?.name}`
+            : `${r.amount} minutes on ${r.scheduled_date}`;
+
+        sendNotification({
+            title: 'Request Approved! 🎉',
+            message: `Your request for ${what} was approved!`,
+            targetKidId: r.kid_id,
+            url: '/login',
+            type: 'notify_kid'
+        });
+
+        sendNotification({
+            title: isMoney ? 'Reminder: send the money 💰' : 'Reminder: add the screen time ⏰',
+            message: isMoney
+                ? `Don't forget to actually send ${kidName} ${what}.`
+                : `Don't forget to add ${what} in Screen Time / Family Link for ${kidName}.`,
+            targetRole: 'parent',
+            url: '/parent',
+            type: 'notify_parent'
+        });
+
+        fetchRequests();
+    }
+
+    async function rejectRequest(r) {
+        await supabase
+            .from('wallet_requests')
+            .update({ status: 'rejected' })
+            .eq('id', r.id);
+
+        fetchRequests();
+    }
+
+    async function fulfillRequest(r) {
+        await supabase
+            .from('wallet_requests')
+            .update({
+                status: 'fulfilled',
+                fulfilled_at: new Date().toISOString(),
+                fulfilled_by_name: user?.name || "Parent"
+            })
+            .eq('id', r.id);
+
+        fetchRequests();
     }
 
     return (
@@ -168,7 +228,7 @@ export default function ParentDashboard() {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1 }}>{t.tasks?.title}</h3>
                                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
-                                        {t.tasks?.reward} ر.س
+                                        {t.tasks?.reward} ⭐
                                     </div>
                                 </div>
                                 <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
@@ -183,27 +243,61 @@ export default function ParentDashboard() {
                             </div>
                         ))}
 
-                        <h2 style={{ marginTop: "30px" }}>Withdrawal Requests 💵</h2>
+                        <h2 style={{ marginTop: "30px" }}>Wallet Requests 🎁</h2>
 
-                        {withdrawals?.length === 0 && (
-                            <p style={{ textAlign: "center", color: "#666" }}>No withdrawal requests right now.</p>
+                        {requests?.length === 0 && (
+                            <p style={{ textAlign: "center", color: "#666" }}>No wallet requests right now.</p>
                         )}
 
-                        {withdrawals?.map(w => (
-                            <div key={w.id} className="card">
+                        {requests?.map(r => (
+                            <div key={r.id} className="card">
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1, textTransform: "capitalize" }}>{w.method}</h3>
+                                    <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1 }}>
+                                        {r.wallet === 'money' ? `💰 → ${r.money_destinations?.name}` : `⏰ Screen Time — ${r.scheduled_date}`}
+                                    </h3>
                                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold", fontSize: "1.2rem" }}>
-                                        {w.amount} ر.س
+                                        {r.amount}
                                     </div>
                                 </div>
-                                <div style={{ marginTop: "12px" }}>
-                                    <button className="button button-info" onClick={() => approveWithdrawal(w)}>
-                                        Approve Payout
+                                <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
+                                    {kidNames[r.kid_id] || 'Unknown'}
+                                </p>
+                                <div style={{ marginTop: "12px", display: "flex", gap: "10px" }}>
+                                    <button className="button button-info" onClick={() => approveRequest(r)}>
+                                        Approve
+                                    </button>
+                                    <button className="button" style={{ background: '#ef4444', color: 'white' }} onClick={() => rejectRequest(r)}>
+                                        Reject
                                     </button>
                                 </div>
                             </div>
                         ))}
+
+                        {toFulfill?.length > 0 && (
+                            <>
+                                <h2 style={{ marginTop: "30px" }}>Ready to Give 🎉</h2>
+                                {toFulfill.map(r => (
+                                    <div key={r.id} className="card">
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <h3 style={{ margin: 0, fontSize: "1.1rem", flex: 1 }}>
+                                                {r.wallet === 'money' ? `💰 → ${r.money_destinations?.name}` : `⏰ Screen Time — ${r.scheduled_date}`}
+                                            </h3>
+                                            <div style={{ background: "#DCFCE7", color: "#16A34A", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
+                                                {r.amount}
+                                            </div>
+                                        </div>
+                                        <p style={{ margin: "5px 0 0", color: "#666", fontSize: "0.9rem" }}>
+                                            {kidNames[r.kid_id] || 'Unknown'}
+                                        </p>
+                                        <div style={{ marginTop: "12px" }}>
+                                            <button className="button" onClick={() => fulfillRequest(r)}>
+                                                Mark as Given ✅
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -227,6 +321,7 @@ export default function ParentDashboard() {
                     className="nav-item"
                     onClick={() => {
                         localStorage.removeItem("user");
+                        localStorage.removeItem("token");
                         nav("/login");
                     }}
                 >

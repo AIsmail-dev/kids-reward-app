@@ -23,6 +23,7 @@ export default function AdminLayout() {
 
     const handleLogout = () => {
         localStorage.removeItem("user")
+        localStorage.removeItem("token")
         nav("/login")
     }
 

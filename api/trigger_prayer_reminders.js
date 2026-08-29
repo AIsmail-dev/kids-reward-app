@@ -10,9 +10,13 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const SUPA_URL = process.env.VITE_SUPABASE_URL || "https://tvsznlwyvamovdxlpzuc.supabase.co";
-    const SUPA_KEY = process.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_CjnlgIJwWu1s1GpAU-7e6Q_zckxdHiV";
-    const supabase = createClient(SUPA_URL, SUPA_KEY);
+    const SUPA_URL = process.env.VITE_SUPABASE_URL;
+    const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!SUPA_URL || !SERVICE_KEY) {
+        console.error('trigger_prayer_reminders: missing required Supabase env vars');
+        return res.status(500).json({ error: 'Server misconfigured' });
+    }
+    const supabase = createClient(SUPA_URL, SERVICE_KEY);
 
     // Get current Riyadh time in HH:MM Format 24hr
     const nowRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));

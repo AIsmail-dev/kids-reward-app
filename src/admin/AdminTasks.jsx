@@ -19,7 +19,7 @@ export default function AdminTasks() {
     }, [])
 
     async function fetchKids() {
-        const { data } = await supabase.from('users').select('*').eq('role', 'kid')
+        const { data } = await supabase.from('users').select('id,name,role').eq('role', 'kid')
         if (data && data.length > 0) {
             setKids(data)
             setKidId(data[0].id)
@@ -102,7 +102,7 @@ export default function AdminTasks() {
                     </div>
 
                     <div className="admin-form-group" style={{ flex: '1 1 100px' }}>
-                        <label>Reward (ر.س)</label>
+                        <label>Reward (Points)</label>
                         <input
                             type="number"
                             className="admin-input"
@@ -177,7 +177,7 @@ export default function AdminTasks() {
                                 </td>
                                 <td style={{ fontWeight: '500' }}>{t.title}</td>
                                 <td>{t.users?.name || 'Unknown'}</td>
-                                <td>{t.reward} ر.س</td>
+                                <td>{t.reward} ⭐</td>
                                 <td style={{ textTransform: 'capitalize' }}>{t.task_type}</td>
                                 <td style={{ textTransform: 'capitalize' }}>{t.recurrence}</td>
                                 <td>

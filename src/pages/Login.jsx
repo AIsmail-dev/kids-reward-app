@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react"
-import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
 
 export default function Login() {
@@ -23,14 +22,13 @@ export default function Login() {
             return
         }
 
-        const { data } = await supabase
-            .from('users')
-            .select('*')
-            .eq('name', name)
-            .eq('pin', pin)
-            .single()
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, pin }),
+        })
 
-        if (!data) {
+        if (!res.ok) {
             setError(true)
             setTimeout(() => {
                 setPin("")
@@ -39,7 +37,10 @@ export default function Login() {
             return
         }
 
+        const { token, user: data } = await res.json()
+
         // Successfully authenticated
+        localStorage.setItem("token", token)
         localStorage.setItem("user", JSON.stringify(data))
 
         if (data.role === 'parent') {

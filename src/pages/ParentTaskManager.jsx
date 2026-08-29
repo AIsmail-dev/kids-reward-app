@@ -15,7 +15,7 @@ export default function ParentTaskManager() {
         async function fetchKids() {
             const { data } = await supabase
                 .from('users')
-                .select('*')
+                .select('id,name,role')
                 .eq('role', 'kid')
 
             if (data && data.length > 0) {
@@ -71,7 +71,7 @@ export default function ParentTaskManager() {
                 className="user-select"
                 style={{ width: '100%', marginBottom: '15px' }}
                 type="number"
-                placeholder="Reward Amount (ر.س)"
+                placeholder="Reward Amount (Points)"
                 value={reward}
                 onChange={e => setReward(e.target.value)}
             />

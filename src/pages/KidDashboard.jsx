@@ -6,6 +6,10 @@ import { requestPushPermission, sendNotification } from "../pushManager";
 export default function KidDashboard() {
   const [tasks, setTasks] = useState([]);
   const [balance, setBalance] = useState(0);
+  const [moneyBalance, setMoneyBalance] = useState(0);
+  const [screenBalance, setScreenBalance] = useState(0);
+  const [rates, setRates] = useState([]);
+  const [destinations, setDestinations] = useState([]);
   const [activeTab, setActiveTab] = useState("tasks");
   const isPushSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
   const [pushEnabled, setPushEnabled] = useState(isPushSupported && Notification.permission === 'granted');
@@ -21,7 +25,9 @@ export default function KidDashboard() {
       return;
     }
     fetchTasks();
-    fetchBalance();
+    fetchBalances();
+    fetchRates();
+    fetchDestinations();
 
     if (isPushSupported && Notification.permission === 'granted') {
       requestPushPermission(kidId);
@@ -49,18 +55,147 @@ export default function KidDashboard() {
     else setTasks(data || []);
   }
 
-  async function fetchBalance() {
+  async function fetchBalances() {
     const { data, error } = await supabase
       .from('wallet_transactions')
-      .select('amount')
+      .select('wallet, amount')
       .eq('kid_id', kidId);
 
-    if (error) console.error("Error fetching balance:", error);
-    else {
-      let total = 0;
-      data?.forEach(t => total += t.amount);
-      setBalance(total);
+    if (error) {
+      console.error("Error fetching balances:", error);
+      return;
     }
+
+    const totals = { points: 0, money: 0, screen_time: 0 };
+    data?.forEach(t => { totals[t.wallet] = (totals[t.wallet] || 0) + t.amount; });
+    setBalance(totals.points);
+    setMoneyBalance(totals.money);
+    setScreenBalance(totals.screen_time);
+  }
+
+  async function fetchRates() {
+    const { data, error } = await supabase.from('wallet_rates').select('*');
+    if (error) console.error("Error fetching rates:", error);
+    else setRates(data || []);
+  }
+
+  async function fetchDestinations() {
+    const { data, error } = await supabase
+      .from('money_destinations')
+      .select('*')
+      .eq('active', true)
+      .order('name');
+    if (error) console.error("Error fetching destinations:", error);
+    else setDestinations(data || []);
+  }
+
+  function rateFor(wallet) {
+    return rates.find(r => r.wallet === wallet);
+  }
+
+  async function convertPoints(wallet) {
+    const rate = rateFor(wallet);
+    if (!rate) return;
+    if (balance <= 0) {
+      alert("You need more points to convert! Keep completing tasks!");
+      return;
+    }
+
+    const points = prompt(`How many points would you like to convert into ${rate.unit_label}? (Max: ${balance})`);
+    if (!points || isNaN(points) || parseInt(points) <= 0) return;
+
+    const pointsSpent = parseInt(points);
+    if (pointsSpent > balance) {
+      alert("You don't have enough points for that!");
+      return;
+    }
+
+    const unitAmount = pointsSpent / rate.points_per_unit;
+
+    const { error } = await supabase.from('wallet_transactions').insert([
+      { kid_id: kidId, wallet: 'points', amount: -pointsSpent, type: 'convert' },
+      { kid_id: kidId, wallet, amount: unitAmount, type: 'convert' },
+    ]);
+
+    if (error) alert("Oops! Something went wrong.");
+    else {
+      alert(`Converted ${pointsSpent} points into ${unitAmount} ${rate.unit_label}! 🎉`);
+      fetchBalances();
+    }
+  }
+
+  async function requestMoneyPayout() {
+    if (moneyBalance <= 0) {
+      alert("You don't have any money to request yet — convert some points first!");
+      return;
+    }
+    if (destinations.length === 0) {
+      alert("No payout destinations set up yet — ask your parent!");
+      return;
+    }
+
+    const list = destinations.map((d, i) => `${i + 1}. ${d.name}`).join('\n');
+    const choice = prompt(`Where should it go?\n${list}\n\nEnter a number:`);
+    const dest = destinations[parseInt(choice) - 1];
+    if (!dest) return;
+
+    const amount = prompt(`How much (Max: ${moneyBalance})?`);
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+    const value = parseFloat(amount);
+    if (value > moneyBalance) {
+      alert("You don't have that much in your Money wallet!");
+      return;
+    }
+
+    const { error } = await supabase.from('wallet_requests').insert({
+      kid_id: kidId,
+      wallet: 'money',
+      amount: value,
+      destination_id: dest.id,
+    });
+
+    if (error) alert("Oops! Something went wrong.");
+    else alert(`Request sent to send ${value} to ${dest.name}! 🎉`);
+  }
+
+  async function requestScreenTime() {
+    if (screenBalance <= 0) {
+      alert("You don't have any screen time banked yet — convert some points first!");
+      return;
+    }
+
+    const amount = prompt(`How many minutes would you like to use (Max: ${screenBalance})?`);
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return;
+    const value = parseFloat(amount);
+    if (value > screenBalance) {
+      alert("You don't have that much screen time banked!");
+      return;
+    }
+
+    const when = prompt(`Which day? Type "today", "tomorrow", or a date (YYYY-MM-DD)`);
+    if (!when) return;
+
+    let scheduledDate;
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+    if (when.trim().toLowerCase() === 'today') {
+      scheduledDate = todayStr;
+    } else if (when.trim().toLowerCase() === 'tomorrow') {
+      const t = new Date(todayStr);
+      t.setDate(t.getDate() + 1);
+      scheduledDate = t.toISOString().split('T')[0];
+    } else {
+      scheduledDate = when.trim();
+    }
+
+    const { error } = await supabase.from('wallet_requests').insert({
+      kid_id: kidId,
+      wallet: 'screen_time',
+      amount: value,
+      scheduled_date: scheduledDate,
+    });
+
+    if (error) alert("Oops! Something went wrong.");
+    else alert(`Request sent for ${value} minutes on ${scheduledDate}! 🎉`);
   }
 
   async function requestApproval(id, taskTitle) {
@@ -93,32 +228,6 @@ export default function KidDashboard() {
     }
   }
 
-  async function requestWithdrawal(method) {
-    if (balance <= 0) {
-      alert("You need more points to withdraw! Keep completing tasks!");
-      return;
-    }
-
-    const amount = prompt(`How much would you like to withdraw? (Max: ${balance} ر.س)`);
-    if (!amount || isNaN(amount) || parseInt(amount) <= 0) return;
-
-    if (parseInt(amount) > balance) {
-      alert("You don't have enough balance for that!");
-      return;
-    }
-
-    const { error } = await supabase
-      .from('withdrawals')
-      .insert({
-        kid_id: kidId,
-        amount: parseInt(amount),
-        method: method
-      });
-
-    if (error) alert("Oops! Something went wrong.");
-    else alert("Withdrawal request sent! 🎉");
-  }
-
   return (
     <div className="app-wrapper">
       <div className="content-area">
@@ -140,8 +249,8 @@ export default function KidDashboard() {
         </div>
 
         <div className="card balance-card">
-          <h2>Your Balance</h2>
-          <div className="balance-amount">{balance} ر.س</div>
+          <h2>Your Points</h2>
+          <div className="balance-amount">{balance} ⭐</div>
           <p style={{ color: "rgba(255,255,255,0.8)" }}>Awesome job! Keep it up! ⭐</p>
         </div>
 
@@ -161,7 +270,7 @@ export default function KidDashboard() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <h3 style={{ margin: 0, fontSize: "1.2rem", flex: 1 }}>{t.tasks?.title}</h3>
                     <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
-                      {t.tasks?.reward} ر.س
+                      {t.tasks?.reward} ⭐
                     </div>
                   </div>
 
@@ -198,20 +307,44 @@ export default function KidDashboard() {
 
         {activeTab === "rewards" && (
           <div>
-            <h2 style={{ marginTop: "20px" }}>Claim Rewards 🎁</h2>
-            <div className="card">
-              <h3>Where do you want your money?</h3>
-              <p style={{ marginBottom: "16px" }}>Choose a withdrawal method and your parent will approve it.</p>
+            <h2 style={{ marginTop: "20px" }}>Your Wallets 🎁</h2>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <button className="button button-info" onClick={() => requestWithdrawal('cash')}>
-                  💵 Real Cash
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0 }}>💰 Money Wallet</h3>
+                <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
+                  {moneyBalance} {rateFor('money')?.unit_label}
+                </div>
+              </div>
+              <p style={{ margin: "8px 0 16px", color: "#666", fontSize: "0.9rem" }}>
+                {rateFor('money')?.points_per_unit} ⭐ = 1 {rateFor('money')?.unit_label}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button className="button button-secondary" onClick={() => convertPoints('money')}>
+                  Convert Points → Money
                 </button>
-                <button className="button button-secondary" onClick={() => requestWithdrawal('school')}>
-                  🎒 School Card
+                <button className="button button-info" onClick={requestMoneyPayout}>
+                  Request Payout
                 </button>
-                <button className="button" style={{ background: "#9C27B0" }} onClick={() => requestWithdrawal('bank')}>
-                  🏦 Bank Transfer
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0 }}>⏰ Screen Time Wallet</h3>
+                <div style={{ background: "var(--warning)", color: "#B45309", padding: "4px 12px", borderRadius: "16px", fontWeight: "bold" }}>
+                  {screenBalance} {rateFor('screen_time')?.unit_label}
+                </div>
+              </div>
+              <p style={{ margin: "8px 0 16px", color: "#666", fontSize: "0.9rem" }}>
+                {rateFor('screen_time')?.points_per_unit} ⭐ = 1 {rateFor('screen_time')?.unit_label}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button className="button button-secondary" onClick={() => convertPoints('screen_time')}>
+                  Convert Points → Screen Time
+                </button>
+                <button className="button" style={{ background: "#9C27B0" }} onClick={requestScreenTime}>
+                  Request to Use
                 </button>
               </div>
             </div>
@@ -238,6 +371,7 @@ export default function KidDashboard() {
           className="nav-item"
           onClick={() => {
             localStorage.removeItem("user");
+            localStorage.removeItem("token");
             nav("/login");
           }}
         >

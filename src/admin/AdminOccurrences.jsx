@@ -281,7 +281,7 @@ export default function AdminOccurrences() {
                                 style={{ background: '#e5e7eb', padding: '15px 20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                             >
                                 <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#111827' }}>
-                                    👩‍👦 {kidName} <span style={{ fontSize: '1rem', color: '#B45309', marginLeft: '10px' }}>(Balance: {dates[Object.keys(dates)[0]][0]?.kid_balance} ر.س)</span>
+                                    👩‍👦 {kidName} <span style={{ fontSize: '1rem', color: '#B45309', marginLeft: '10px' }}>(Balance: {dates[Object.keys(dates)[0]][0]?.kid_balance} ⭐)</span>
                                 </h2>
                                 {expandedKids[kidName] ? <FiChevronUp size={24} /> : <FiChevronDown size={24} />}
                             </div>
@@ -300,7 +300,7 @@ export default function AdminOccurrences() {
                                                         <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>
                                                             📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                                             <span style={{ fontSize: '0.9rem', color: '#16a34a', marginLeft: '15px' }}>
-                                                                (+{dailyOccs.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ر.س Earned)
+                                                                (+{dailyOccs.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ⭐ Earned)
                                                             </span>
                                                         </h3>
 
@@ -334,7 +334,7 @@ export default function AdminOccurrences() {
                                                                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
                                                                         {occ.completed_at ? `Requested: ${new Date(occ.completed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'No request time'}
                                                                         {occ.updated_by_name && <span style={{ marginLeft: '6px', fontWeight: 'bold', color: '#6366f1' }}>(by {occ.updated_by_name})</span>}
-                                                                        <span style={{ fontWeight: 'bold', marginLeft: '10px', color: '#B45309' }}>• {occ.tasks?.reward} ر.س</span>
+                                                                        <span style={{ fontWeight: 'bold', marginLeft: '10px', color: '#B45309' }}>• {occ.tasks?.reward} ⭐</span>
                                                                     </p>
                                                                     <div style={{ marginTop: '5px' }}>
                                                                         {occ.status === 'pending' && <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: 'bold' }}><FiClock /> Pending</span>}
