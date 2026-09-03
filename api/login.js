@@ -23,6 +23,14 @@ export default async function handler(req, res) {
         .eq('name', name)
         .single();
 
+    if (error) {
+        console.error('api/login: Supabase query failed:', JSON.stringify(error));
+    } else if (!user) {
+        console.error('api/login: query succeeded but returned no user for name:', name);
+    } else if (user.pin !== pin) {
+        console.error('api/login: user found but PIN did not match for name:', name);
+    }
+
     if (error || !user || user.pin !== pin) {
         return res.status(401).json({ error: 'Invalid name or PIN' });
     }
