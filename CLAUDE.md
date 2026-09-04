@@ -76,6 +76,8 @@ An earlier version of this feature (`reward_types` + a `redemptions` table, one 
 
 ## Notes for changes here
 
+- `SESSION_HANDOFF.md`, when present, holds point-in-time notes from the end of a prior session (what just changed, what's still open) — this file (`CLAUDE.md`) is the enduring architecture reference; check `SESSION_HANDOFF.md` too if it exists for recent context this file wouldn't capture.
+
 - Timezone-sensitive logic (task generation, prayer reminders) assumes Riyadh time via a hardcoded UTC+3 offset or `Asia/Riyadh` — match that convention rather than introducing `Date` logic that assumes UTC or local server time.
 - `.gitignore`'s `.env*` pattern was previously broken (saved as UTF-16, so git never matched it) and `.env`/`.env.development` were tracked; this was fixed in commit `7adc08e` and both files are now correctly untracked/ignored.
 - Production has an unexplained `kids` table (confirmed via `information_schema.tables` during the RLS/reward-system rollout) that appears nowhere in `sql/`, in git history, or anywhere else this codebase references it. Nothing in the app touches it. Not investigated further — if you're touching schema and see it, don't assume you know what it's for.
