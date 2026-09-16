@@ -270,7 +270,12 @@ export default function AdminOccurrences() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {occurrences.length === 0 && <p>No task occurrences found.</p>}
 
-                    {Object.entries(grouped).map(([kidName, dates]) => (
+                    {Object.entries(grouped).map(([kidName, dates]) => {
+                        // Dates arrive newest-first; walk backward from the kid's current
+                        // total balance to derive each day's pre-transaction balance.
+                        let runningBalance = dates[Object.keys(dates)[0]]?.[0]?.kid_balance || 0;
+
+                        return (
                         <div key={kidName} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', background: '#f9fafb' }}>
                             <div
                                 onClick={() => toggleKid(kidName)}
@@ -286,6 +291,18 @@ export default function AdminOccurrences() {
                                 <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     {Object.entries(dates).map(([date, dailyOccs]) => {
                                         const dateKey = `${kidName}-${date}`;
+
+                                        const earnedToday = dailyOccs
+                                            .filter(o => o.status === 'approved' && (o.tasks?.reward || 0) > 0)
+                                            .reduce((sum, o) => sum + (o.tasks?.reward || 0), 0);
+                                        const deductedToday = dailyOccs
+                                            .filter(o => o.status === 'approved' && (o.tasks?.reward || 0) < 0)
+                                            .reduce((sum, o) => sum + Math.abs(o.tasks?.reward || 0), 0);
+
+                                        const endOfDayBalance = runningBalance;
+                                        const previousDayCredit = endOfDayBalance - earnedToday + deductedToday;
+                                        runningBalance = previousDayCredit;
+
                                         return (
                                             <div key={date} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
                                                 <div
@@ -295,8 +312,11 @@ export default function AdminOccurrences() {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                         <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#374151' }}>
                                                             📅 {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                                            <span style={{ fontSize: '0.9rem', color: '#16a34a', marginLeft: '15px' }}>
-                                                                (+{dailyOccs.filter(o => o.status === 'approved').reduce((sum, o) => sum + (o.tasks?.reward || 0), 0)} ⭐ Earned)
+                                                            <span style={{ fontSize: '0.9rem', marginLeft: '15px', fontWeight: 'bold' }}>
+                                                                (<span style={{ color: '#2563eb' }}>{previousDayCredit}</span>
+                                                                {' + '}<span style={{ color: '#16a34a' }}>{earnedToday}</span>
+                                                                {' − '}<span style={{ color: '#dc2626' }}>{deductedToday}</span>
+                                                                {' = '}<span style={{ color: '#111827' }}>{endOfDayBalance}</span> ⭐)
                                                             </span>
                                                         </h3>
 
@@ -382,7 +402,8 @@ export default function AdminOccurrences() {
                                 </div>
                             )}
                         </div>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
         </div>
