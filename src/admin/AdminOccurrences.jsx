@@ -93,7 +93,7 @@ export default function AdminOccurrences() {
         const occData = res.data || [];
 
         const { data: userData, error: userError } = await supabase.from('users').select('id, name');
-        const { data: txData, error: txError } = await supabase.from('wallet_transactions').select('kid_id, amount, type');
+        const { data: txData, error: txError } = await supabase.from('wallet_transactions').select('kid_id, amount, wallet').eq('wallet', 'points');
 
         const userMap = {};
         const userWalletMap = {};
@@ -111,11 +111,7 @@ export default function AdminOccurrences() {
                     userWalletMap[tx.kid_id] = 0;
                 }
                 const amt = Number(tx.amount) || 0;
-                if (tx.type === 'reward') {
-                    userWalletMap[tx.kid_id] += amt;
-                } else if (tx.type === 'withdraw') {
-                    userWalletMap[tx.kid_id] -= amt;
-                }
+                userWalletMap[tx.kid_id] += amt;
             });
         }
 
