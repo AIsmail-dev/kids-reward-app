@@ -199,31 +199,41 @@ export default function KidDashboard() {
   }
 
   async function requestApproval(id, taskTitle) {
+    // Hide the button immediately so repeated taps can't re-send while the request is in flight
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'waiting_parent' } : t));
+
     let payload = {
       status: 'waiting_parent',
       completed_at: new Date().toISOString(),
       updated_by_name: user?.name || "Kid"
     };
 
-    let res = await supabase.from('task_occurrences').update(payload).eq('id', id);
+    // Only transition from 'pending', and only notify if this call actually did the transition
+    let res = await supabase.from('task_occurrences').update(payload).eq('id', id).eq('status', 'pending').select('id');
 
     if (res.error && (res.error.message?.includes('completed_at') || res.error.message?.includes('updated_by_name'))) {
       res = await supabase
         .from('task_occurrences')
         .update({ status: 'waiting_parent' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id');
     }
 
-    if (res.error) alert("Oops! Something went wrong.");
-    else {
-      alert("Sent to parent for approval! 🚀");
-      sendNotification({
-        title: 'Task Finished! 🚀',
-        message: `${user?.name} just finished "${taskTitle}" and needs approval!`,
-        targetRole: 'parent',
-        url: '/login',
-        type: 'notify_parent'
-      });
+    if (res.error) {
+      alert("Oops! Something went wrong.");
+      fetchTasks();
+    } else {
+      if (res.data?.length) {
+        sendNotification({
+          title: 'Task Finished! 🚀',
+          message: `${user?.name} just finished "${taskTitle}" and needs approval!`,
+          targetRole: 'parent',
+          url: '/login',
+          type: 'notify_parent'
+        });
+        alert("Sent to parent for approval! 🚀");
+      }
       fetchTasks();
     }
   }

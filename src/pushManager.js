@@ -42,8 +42,6 @@ export async function requestPushPermission(userId) {
             }
 
             const subJson = subscription.toJSON();
-            console.log("Saving push sub for user", userId, subJson);
-
             // Check if it's already in the database
             const { data } = await supabase.from('push_subscriptions').select('*').eq('user_id', userId);
             const exists = data?.find(sub => sub.subscription?.endpoint === subJson.endpoint);
@@ -53,17 +51,11 @@ export async function requestPushPermission(userId) {
                     user_id: userId,
                     subscription: subJson
                 });
-                if (error) {
-                    alert("Supabase Insert Error: " + error.message);
-                } else {
-                    alert("Subscription saved successfully to DB!");
-                }
-            } else {
-                alert("Subscription exists in DB.");
+                if (error) console.error("Failed to save push subscription", error);
             }
             return true;
         } catch (e) {
-            alert("Push Error: " + e.message);
+            console.error("Push subscription error", e);
             return false;
         }
     }

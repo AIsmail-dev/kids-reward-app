@@ -9,8 +9,8 @@ self.addEventListener('push', function (event) {
 
         const options = {
             body: data.body,
-            icon: '/icon.png',
-            badge: '/icon.png',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
             sound: soundUrl,
             vibrate: data.type === 'notify_kid' ? [200, 100, 200, 100, 200, 100, 400] : [200, 100, 200],
             data: { url: data.url || '/' }
