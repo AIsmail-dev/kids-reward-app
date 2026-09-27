@@ -27,14 +27,12 @@ export default function AdminTasks() {
     }
 
     async function fetchTasks() {
-        const { data } = await supabase
-            .from('tasks')
-            .select(`
-                *,
-                users!tasks_assigned_kid_fkey (name)
-            `)
-            .order('created_at', { ascending: false })
-        setTasks(data || [])
+        // Kid names are looked up from `kids` state rather than a PostgREST embed:
+        // production's tasks table has no FK to users, so an embed fails there
+        // Sorted client-side: production's tasks table also predates the created_at column
+        const { data, error } = await supabase.from('tasks').select('*')
+        if (error) console.error("Error fetching tasks:", error)
+        setTasks((data || []).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')))
     }
 
     async function handleCreateTask(e) {
@@ -176,7 +174,7 @@ export default function AdminTasks() {
                                     </span>
                                 </td>
                                 <td style={{ fontWeight: '500' }}>{t.title}</td>
-                                <td>{t.users?.name || 'Unknown'}</td>
+                                <td>{kids.find(k => k.id === t.assigned_kid)?.name || 'Unknown'}</td>
                                 <td>{t.reward} ⭐</td>
                                 <td style={{ textTransform: 'capitalize' }}>{t.task_type}</td>
                                 <td style={{ textTransform: 'capitalize' }}>{t.recurrence}</td>
