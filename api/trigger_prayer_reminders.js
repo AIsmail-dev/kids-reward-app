@@ -5,6 +5,14 @@ const VAPID_PUBLIC = "BFEfkz9ji2VeaQDjPghfCZT3tju-6DYv6kMsjsaJ-NfpblzuKRxrT4YJM8
 const VAPID_PRIVATE = "RQVngakZXhAppFQT__CGx7zNEK--0LwMb0icMJbmunA";
 webpush.setVapidDetails('mailto:admin@kidsrewards.app', VAPID_PUBLIC, VAPID_PRIVATE);
 
+// High urgency so Android delivers while the phone is dozing; a reminder is stale after 30 minutes
+// (the next one follows).
+const PUSH_OPTIONS = { urgency: 'high', TTL: 1800 };
+
+// Arabic spelling of each kid's name, keyed by users.name lowercased, for the notification text.
+// The same slug picks the Android app's spoken clip for that kid (scripts/gen-kid-prayer-clips.sh).
+const KID_NAMES_AR = { yahia: 'يحيى', farida: 'فريدة' };
+
 export default async function handler(req, res) {
     if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -78,6 +86,8 @@ export default async function handler(req, res) {
 
         const kidIds = [...new Set(occurrences.map(o => o.kid_id))];
         const { data: subs } = await supabase.from('push_subscriptions').select('subscription, user_id').in('user_id', kidIds);
+        const { data: kids } = await supabase.from('users').select('id, name').in('id', kidIds);
+        const kidSlugs = Object.fromEntries((kids || []).map(k => [k.id, (k.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')]));
 
         occurrences.forEach(occ => {
             const title = (occ.tasks.title || "").toLowerCase();
@@ -92,20 +102,23 @@ export default async function handler(req, res) {
                 const soundFile = `/${matchedPrayer.config.soundBase}_${matchedPrayer.isReminder ? 'remind' : 'now'}.mp3`;
 
                 const titleText = matchedPrayer.isReminder ? 'تذكير بالصلاة! 📿' : 'حان وقت الصلاة! 🕌';
-                const bodyText = matchedPrayer.isReminder
+                const kidSlug = kidSlugs[occ.kid_id] || '';
+                const greeting = KID_NAMES_AR[kidSlug] ? `يا ${KID_NAMES_AR[kidSlug]}، ` : '';
+                const bodyText = greeting + (matchedPrayer.isReminder
                     ? `لا تنسى صلاة ${matchedPrayer.config.keywords[0]}! هيا اكسب مكافأتك.`
-                    : `حان الآن وقت صلاة ${matchedPrayer.config.keywords[0]}!`;
+                    : `حان الآن وقت صلاة ${matchedPrayer.config.keywords[0]}!`);
 
                 const payload = JSON.stringify({
                     title: titleText,
                     body: bodyText,
                     url: '/',
                     type: 'notify_kid',
-                    customSound: soundFile
+                    customSound: soundFile,
+                    kid: kidSlug
                 });
 
                 kidSubs.forEach(s => {
-                    promises.push(webpush.sendNotification(s.subscription, payload).catch(e => console.error(e)));
+                    promises.push(webpush.sendNotification(s.subscription, payload, PUSH_OPTIONS).catch(e => console.error(e)));
                     notificationsSent++;
                 });
             }
