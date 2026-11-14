@@ -105,8 +105,17 @@ async function applyBonus(supabase, request) {
     if (sentEnd > now && windowEnd >= sentEnd - 90000) return sentEnd;
 
     if (windowEnd <= now && (device.bedtimeActive || device.schooltimeActive)) {
-        // The bonus would lift these too.
-        throw new NotNowError(`It's ${device.bedtimeActive ? 'downtime' : 'school time'} now. Start it later.`);
+        // The bonus would lift these too. But Google keeps a schedule's windows in the applied limits
+        // after the parent switches the schedule off, and the library doesn't check the switch, so
+        // ask for it. Only a schedule seen and switched off is ignored: if the rules can't be read,
+        // the window counts.
+        const rules = await withTimeout(client.getTimeLimitRules(childId));
+        const off = (ruleId, enabled) => Boolean(ruleId) && !enabled;
+        const downtime = device.bedtimeActive && !off(rules.bedtimeRuleId, rules.bedtimeEnabled);
+        const schooltime = device.schooltimeActive && !off(rules.schooltimeRuleId, rules.schoolTimeEnabled);
+        if (downtime || schooltime) {
+            throw new NotNowError(`It's ${downtime ? 'downtime' : 'school time'} now. Start it later.`);
+        }
     }
 
     // Time used during a window still counts toward the daily limit (the device locks when it ends),
