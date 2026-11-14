@@ -5,6 +5,8 @@ import { requestPushPermission, sendNotification } from "../pushManager";
 import { useNotice, useAutoRefresh, todayInRiyadh, timeInRiyadh, logout } from "../notice";
 
 const SCREEN_MINUTES = [15, 30, 60];
+// Sony's play-time limits move in 15-minute steps.
+const PLAYSTATION_MINUTES = [15, 30, 45, 60];
 const EXCEPTIONAL = /^\[Exceptional\]\s*/;
 
 export default function KidDashboard() {
@@ -155,9 +157,11 @@ export default function KidDashboard() {
     }
     const what = wallet === 'screen_time'
       ? `${amount} min of screen time`
-      : `${amount} ${rateFor('money')?.unit_label} to ${destination.name}`;
+      : wallet === 'playstation_time'
+        ? `${amount} min of PlayStation`
+        : `${amount} ${rateFor('money')?.unit_label} to ${destination.name}`;
     sendNotification({
-      title: wallet === 'screen_time' ? 'Screen time request ⏰' : 'Money request 💰',
+      title: wallet === 'screen_time' ? 'Screen time request ⏰' : wallet === 'playstation_time' ? 'PlayStation request 🎮' : 'Money request 💰',
       message: `${user?.name} is asking for ${what} (${costOf(wallet, amount)} ⭐).`,
       targetRole: 'parent',
       url: '/parent',
@@ -171,6 +175,7 @@ export default function KidDashboard() {
 
   function requestLabel(r) {
     if (r.wallet === 'screen_time') return `⏰ ${r.amount} min screen time`;
+    if (r.wallet === 'playstation_time') return `🎮 ${r.amount} min PlayStation`;
     return `💰 ${r.amount} ${rateFor('money')?.unit_label || ''} → ${r.money_destinations?.name || ''}`;
   }
 
@@ -180,6 +185,7 @@ export default function KidDashboard() {
       return { text: `On now, until ${timeInRiyadh(r.familylink_ends_at)} ▶`, kind: 'ok' };
     }
     if (r.wallet === 'screen_time') return { text: 'Approved! Your parent is adding it ✅', kind: 'ok' };
+    if (r.wallet === 'playstation_time') return { text: 'Approved! Being added to your PlayStation ✅', kind: 'ok' };
     return { text: 'Approved! Coming soon ✅', kind: 'ok' };
   }
 
@@ -287,6 +293,31 @@ export default function KidDashboard() {
                 })}
               </div>
             </div>
+
+            {rateFor('playstation_time') && (
+              <>
+                <h2 className="section-title">🎮 PlayStation</h2>
+                <div className="card">
+                  <p className="muted">Tap to ask your parent. Once they say yes, you can play it any time today.</p>
+                  <div className="button-grid">
+                    {PLAYSTATION_MINUTES.map(min => {
+                      const cost = costOf('playstation_time', min);
+                      return (
+                        <button
+                          key={min}
+                          className="button button-info"
+                          style={{ padding: "14px 6px", fontSize: "1rem", textTransform: "none" }}
+                          disabled={sending || cost > available}
+                          onClick={() => ask('playstation_time', min)}
+                        >
+                          {min} min<br /><span style={{ fontSize: "0.85rem" }}>{cost} ⭐</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
 
             {destinations.length > 0 && (
               <>

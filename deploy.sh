@@ -3,6 +3,8 @@
 #   kids-db    Supabase Postgres (pg_cron, pg_net); data in the `kids-db-data` volume; 127.0.0.1:55432 for admin
 #   kids-rest  PostgREST, reachable only from kids-web
 #   kids-web   frontend + api/*.js, proxies /rest/v1 to kids-rest; 127.0.0.1:8082
+#   kids-psn   PlayStation Family bridge (docker/psn/), reachable only from kids-web; PSN login in
+#              the `kids-playstation` volume
 # Caddy (~/Projects/home-proxy) serves kids-web as http://kids.lan and, through Tailscale Funnel,
 # https://ahmeds-macbook-pro.tail712747.ts.net. Development (npm run dev, 5173) is http://dev.kids.lan.
 #   Deploy / update: ./deploy.sh        (data from the cloud project: scripts/migrate-cloud-to-local.sh)
@@ -45,6 +47,13 @@ if ! docker container inspect kids-rest >/dev/null 2>&1; then
     "$REST_IMAGE" >/dev/null
 fi
 
+# PlayStation time (api/playstation.js): no published port, only kids-web calls it.
+docker build -q -t kids-psn:latest docker/psn >/dev/null
+docker rm -f kids-psn 2>/dev/null || true
+docker run -d --name kids-psn --network kids-prod --restart unless-stopped \
+  -v kids-playstation:/data -e TZ=Asia/Riyadh \
+  kids-psn:latest >/dev/null
+
 docker build -t kids-web:latest --build-arg VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" .
 docker rm -f kids-web 2>/dev/null || true
 # Loopback only: other devices go through Caddy.
@@ -53,6 +62,7 @@ docker run -d --name kids-web --network kids-prod --restart unless-stopped \
   -e VITE_SUPABASE_URL=http://localhost:8080 -e REST_UPSTREAM=http://kids-rest:3000 \
   -e SUPABASE_SERVICE_ROLE_KEY -e SUPABASE_JWT_SECRET \
   -v kids-familylink:/data -e FAMILYLINK_DATA_DIR=/data -e FAMILYLINK_AUTH_USER \
+  -e PSN_SERVICE_URL=http://kids-psn:8090 \
   kids-web:latest >/dev/null
 
 # Scheduled jobs (daily tasks, prayer reminders) call kids-web from inside the database.

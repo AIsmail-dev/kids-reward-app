@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import FamilyLinkSettings from "./FamilyLinkSettings";
+import PlayStationSettings from "./PlayStationSettings";
 
 export default function SettingsTab({ notify }) {
     const [rates, setRates] = useState([]);
@@ -45,6 +46,7 @@ export default function SettingsTab({ notify }) {
 
     const screen = rates.find(r => r.wallet === 'screen_time');
     const money = rates.find(r => r.wallet === 'money');
+    const playstation = rates.find(r => r.wallet === 'playstation_time');
 
     return (
         <div>
@@ -57,6 +59,17 @@ export default function SettingsTab({ notify }) {
                             <input key={screen.points_per_unit} className="input" style={{ width: "80px" }} type="number" inputMode="decimal"
                                 defaultValue={screen.points_per_unit}
                                 onBlur={e => Number(e.target.value) !== Number(screen.points_per_unit) && updateRate('screen_time', { points_per_unit: parseFloat(e.target.value) })} />
+                            ⭐
+                        </span>
+                    </div>
+                )}
+                {playstation && (
+                    <div className="row">
+                        <span>🎮 1 PlayStation minute costs</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <input key={playstation.points_per_unit} className="input" style={{ width: "80px" }} type="number" inputMode="decimal"
+                                defaultValue={playstation.points_per_unit}
+                                onBlur={e => Number(e.target.value) !== Number(playstation.points_per_unit) && updateRate('playstation_time', { points_per_unit: parseFloat(e.target.value) })} />
                             ⭐
                         </span>
                     </div>
@@ -97,6 +110,7 @@ export default function SettingsTab({ notify }) {
             </div>
 
             <FamilyLinkSettings notify={notify} />
+            <PlayStationSettings notify={notify} />
         </div>
     );
 }

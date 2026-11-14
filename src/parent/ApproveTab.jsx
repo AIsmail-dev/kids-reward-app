@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { sendNotification } from "../pushManager";
 import { callFamilyLink } from "../familyLink";
+import { callPlayStation } from "../playStation";
 import { todayInRiyadh, timeInRiyadh } from "../notice";
 
 const daysAgoInRiyadh = (days) =>
@@ -131,6 +132,8 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
             if (r.wallet === 'screen_time') {
                 // The time starts now: a Family Link bonus runs from the moment it's applied.
                 await startScreenTime(r);
+            } else if (r.wallet === 'playstation_time') {
+                await addPlayStationTime(r);
             } else {
                 sendNotification({
                     title: 'Request Approved! 🎉',
@@ -154,6 +157,23 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                 notify(`Added ${r.amount} min to ${names[r.kid_id]}'s phone, until ${timeInRiyadh(result.endsAt)} ✅`);
             } else {
                 notify(result.error || "Couldn't add the time on Family Link.", 'error');
+            }
+        } catch (e) {
+            notify(e.message, 'error');
+        }
+        setBusy(null);
+        load();
+    }
+
+    // Adds the minutes to the kid's PlayStation limit for today (playable any time until midnight).
+    async function addPlayStationTime(r) {
+        setBusy(r.id);
+        try {
+            const result = await callPlayStation('grant', { requestId: r.id });
+            if (result.status === 'granted') {
+                notify(`Added ${r.amount} min to ${names[r.kid_id]}'s PlayStation for today (${result.todayLimitMinutes} min in total) 🎮`);
+            } else {
+                notify(result.error || "Couldn't add the time on PlayStation.", 'error');
             }
         } catch (e) {
             notify(e.message, 'error');
@@ -188,7 +208,14 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
 
     const describe = (r) => r.wallet === 'screen_time'
         ? `${r.amount} min screen time`
-        : `${r.amount} ${unit} → ${r.money_destinations?.name}`;
+        : r.wallet === 'playstation_time'
+            ? `${r.amount} min PlayStation`
+            : `${r.amount} ${unit} → ${r.money_destinations?.name}`;
+    const icon = (r) => ({ screen_time: '⏰', playstation_time: '🎮' })[r.wallet] || '💰';
+    const approveHint = (r) => ({
+        screen_time: ' · starts as soon as you approve',
+        playstation_time: " · added to today's PlayStation time when you approve",
+    })[r.wallet] || '';
 
     const today = todayInRiyadh();
     const nothing = doneTasks.length + requests.length + toDo.length === 0;
@@ -209,11 +236,11 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                     {requests.map(r => (
                         <div key={r.id} className="card">
                             <div className="row">
-                                <strong>{names[r.kid_id]} · {r.wallet === 'screen_time' ? '⏰' : '💰'} {describe(r)}</strong>
+                                <strong>{names[r.kid_id]} · {icon(r)} {describe(r)}</strong>
                                 <span className="pill">{r.points_cost} ⭐</span>
                             </div>
                             <p className="muted">
-                                Has {points[r.kid_id] || 0} ⭐{r.wallet === 'screen_time' ? ' · starts as soon as you approve' : ''}
+                                Has {points[r.kid_id] || 0} ⭐{approveHint(r)}
                             </p>
                             <div className="row">
                                 <button className="button button-green button-small" style={{ flex: 1 }} disabled={busy === r.id} onClick={() => approveRequest(r)}>
@@ -266,8 +293,16 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                             <strong>
                                 {r.wallet === 'money'
                                     ? `💰 Give ${names[r.kid_id]} ${r.amount} ${unit} (${r.money_destinations?.name})`
-                                    : `⏰ ${names[r.kid_id]}'s ${r.amount} min screen time`}
+                                    : r.wallet === 'playstation_time'
+                                        ? `🎮 ${names[r.kid_id]}'s ${r.amount} min PlayStation`
+                                        : `⏰ ${names[r.kid_id]}'s ${r.amount} min screen time`}
                             </strong>
+                            {r.wallet === 'playstation_time' && r.playstation_status === 'failed' && (
+                                <div className="status-line error">{r.playstation_error}</div>
+                            )}
+                            {r.wallet === 'playstation_time' && r.playstation_status !== 'failed' && (
+                                <p className="muted">Not added to the PlayStation yet.</p>
+                            )}
                             {r.wallet === 'screen_time' && r.familylink_status === 'failed' && (
                                 <div className="status-line error">{r.familylink_error}</div>
                             )}
@@ -283,6 +318,16 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                                         onClick={() => startScreenTime(r)}
                                     >
                                         {busy === r.id || r.familylink_status === 'granting' ? 'Adding…' : 'Add to phone now'}
+                                    </button>
+                                )}
+                                {r.wallet === 'playstation_time' && (
+                                    <button
+                                        className="button button-info button-small"
+                                        style={{ flex: 1 }}
+                                        disabled={busy === r.id || r.playstation_status === 'granting'}
+                                        onClick={() => addPlayStationTime(r)}
+                                    >
+                                        {busy === r.id || r.playstation_status === 'granting' ? 'Adding…' : 'Add to PlayStation now'}
                                     </button>
                                 )}
                                 <button className="button button-ghost button-small" style={r.wallet === 'money' ? { flex: 1 } : {}} disabled={busy === r.id} onClick={() => markGiven(r)}>
