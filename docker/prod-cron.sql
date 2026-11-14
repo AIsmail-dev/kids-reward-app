@@ -8,8 +8,8 @@ SELECT cron.schedule('generate-daily-tasks', '0 21 * * *',
   $$SELECT net.http_get('http://kids-web:8080/api/cron-tasks')$$);
 
 -- Prayer reminders: the endpoint checks the current Riyadh minute against today's prayer times and
--- fires a push (with the per-kid spoken clip) at each prayer and every 30 min after while the prayer
--- task is still pending, so it must run every minute (api/trigger_prayer_reminders.js). This replaces
+-- fires one push (with the per-kid spoken clip) at each prayer's minute while the prayer task is
+-- still pending, so it must run every minute (api/trigger_prayer_reminders.js). This replaces
 -- the cloud setup's Vercel Cron (sql/04 pointed at a Vercel URL, which the self-hosted stack isn't).
 SELECT cron.schedule('trigger-prayer-reminders', '* * * * *',
   $$SELECT net.http_get('http://kids-web:8080/api/trigger_prayer_reminders')$$);
