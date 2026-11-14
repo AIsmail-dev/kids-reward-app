@@ -24,4 +24,7 @@ dist-ssr
 *.sw?
 
 .env*
+backups/
 public/kids-rewards.apk
+
+.familylink/

@@ -1,3 +1,9 @@
+// Tells any open app window to reload its data (src/notice.jsx useAutoRefresh).
+function refreshOpenWindows() {
+    return clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(list => list.forEach(client => client.postMessage({ type: 'refresh' })));
+}
+
 self.addEventListener('push', function (event) {
     if (event.data) {
         const data = event.data.json();
@@ -25,17 +31,28 @@ self.addEventListener('push', function (event) {
             options.tag = 'sound-' + kid + clip[1];
             options.renotify = true;
         }
-        event.waitUntil(
-            self.registration.showNotification(data.title, options)
-        );
+        event.waitUntil(Promise.all([
+            self.registration.showNotification(data.title, options),
+            refreshOpenWindows(),
+        ]));
     }
 });
 
+// Tapping a notification brings the open app to the front and refreshes it; only opens a new
+// window when the app isn't open.
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
-    if (event.notification.data && event.notification.data.url) {
-        event.waitUntil(
-            clients.openWindow(event.notification.data.url)
-        );
-    }
+    const url = (event.notification.data && event.notification.data.url) || '/';
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+            const open = list.find(client => new URL(client.url).origin === self.location.origin);
+            if (!open) return clients.openWindow(url);
+            open.postMessage({ type: 'refresh' });
+            return open.focus();
+        })
+    );
 });
+
+// Take over open pages straight away, so an updated version of this file applies without a restart.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', event => event.waitUntil(clients.claim()));

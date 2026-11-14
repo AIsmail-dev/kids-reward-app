@@ -1,5 +1,6 @@
-import { createServer } from 'node:http';
-import { readdir } from 'node:fs/promises';
+import { createServer, request } from 'node:http';
+import { createReadStream } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -31,8 +32,62 @@ function readBody(req) {
     });
 }
 
+// STATIC_DIR (set by the Docker image, see Dockerfile) also serves the built
+// frontend from this process, with the same SPA fallback as vercel.json.
+const STATIC_DIR = process.env.STATIC_DIR && path.resolve(process.env.STATIC_DIR);
+const MIME = {
+    '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
+    '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon',
+    '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.txt': 'text/plain',
+    '.apk': 'application/vnd.android.package-archive',
+};
+
+async function serveStatic(pathname, res) {
+    let file = path.join(STATIC_DIR, decodeURIComponent(pathname));
+    if (!file.startsWith(STATIC_DIR)) file = STATIC_DIR;
+    let info = await stat(file).catch(() => null);
+    if (!info?.isFile()) {
+        file = path.join(STATIC_DIR, 'index.html');
+        info = await stat(file);
+    }
+    const ext = path.extname(file);
+    res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Content-Length': info.size,
+        // Vite fingerprints everything under /assets; anything else must revalidate.
+        'Cache-Control': pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+    });
+    createReadStream(file).pipe(res);
+}
+
+// REST_UPSTREAM (Docker production): forward Supabase's /rest/v1/* to the PostgREST container,
+// so the browser and api/*.js reach the database through this one port.
+const REST_UPSTREAM = process.env.REST_UPSTREAM && new URL(process.env.REST_UPSTREAM);
+
+function proxyRest(req, res, url) {
+    const upstream = request({
+        host: REST_UPSTREAM.hostname,
+        port: REST_UPSTREAM.port,
+        method: req.method,
+        path: url.pathname.slice('/rest/v1'.length) + url.search,
+        headers: { ...req.headers, host: REST_UPSTREAM.host },
+    }, (up) => {
+        res.writeHead(up.statusCode, up.headers);
+        up.pipe(res);
+    });
+    upstream.on('error', (err) => {
+        console.error('[rest-proxy]', err.message);
+        if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Database API unavailable' }));
+    });
+    req.pipe(upstream);
+}
+
 const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
+    if (REST_UPSTREAM && url.pathname.startsWith('/rest/v1/')) return proxyRest(req, res, url);
+    if (STATIC_DIR && !url.pathname.startsWith('/api/')) return serveStatic(url.pathname, res);
     const name = url.pathname.replace(/^\/api\//, '');
     const handler = handlers[name];
 

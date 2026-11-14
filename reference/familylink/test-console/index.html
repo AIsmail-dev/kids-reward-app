@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Link Test Console</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --ink: #1c2330; --muted: #667085; --line: #e3e6ec;
+  --accent: #2f6fed; --accent-ink: #ffffff; --ok: #1a8f5c; --bad: #c8372d; --warn: #b26a00;
+  --warn-bg: #fff4dd; --chip: #eef1f6; --bar: #7aa2f7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151b; --card: #1b2029; --ink: #e8ebf1; --muted: #98a2b3; --line: #2b3240;
+    --accent: #6b9bff; --accent-ink: #0d1220; --ok: #4cc38a; --bad: #ff7b72; --warn: #f0b849;
+    --warn-bg: #3a2c0d; --chip: #252c38; --bar: #4f7bd9;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 17px; margin: 0; flex: 1 1 auto; }
+header h1 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.grid .card { margin: 0; }
+button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.danger { color: var(--bad); }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+input[type=number] { width: 78px; }
+textarea { width: 100%; min-height: 150px; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row + .row { margin-top: 10px; }
+.muted { color: var(--muted); }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 99px; background: var(--chip); font-size: 12.5px; }
+.chip.ok { color: var(--ok); } .chip.bad { color: var(--bad); } .chip.warn { color: var(--warn); }
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.switch input { width: 18px; height: 18px; accent-color: var(--bad); }
+.banner { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
+.device { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+.device:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.device h3 { margin: 0 0 6px; font-size: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 10px 0; }
+.stat { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.stat b { display: block; font-size: 18px; } .stat span { font-size: 12px; color: var(--muted); }
+.bars { display: grid; gap: 6px; }
+.bar { display: grid; grid-template-columns: minmax(90px, 38%) 1fr 62px; gap: 8px; align-items: center; font-size: 13px; }
+.bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .track { background: var(--bg); border-radius: 4px; height: 10px; overflow: hidden; }
+.bar .fill { background: var(--bar); height: 100%; border-radius: 4px; }
+.bar .val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+td, th { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; }
+.log { max-height: 220px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; }
+.log .bad { color: var(--bad); }
+details summary { cursor: pointer; color: var(--muted); }
+pre { overflow: auto; max-height: 320px; font: 12px/1.4 ui-monospace, Menlo, monospace; background: var(--bg); padding: 10px; border-radius: 8px; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); max-width: 420px; padding: 20px; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.err { color: var(--bad); }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; display: none; z-index: 20; max-width: 90vw; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Family Link Test Console <small id="sub">g-family-link, unofficial</small></h1>
+  <label class="switch" title="While off, the server blocks every request that could change something"><input type="checkbox" id="writeToggle"> <span id="writeLabel">Write mode off</span></label>
+  <button id="refresh">Refresh</button>
+  <button id="forget" class="danger">Delete cookies</button>
+</header>
+<main>
+  <section id="setup" class="card" hidden>
+    <h2>Connect your parent account</h2>
+    <ol>
+      <li>In Chrome, open <b>familylink.google.com</b> signed in as the parent.</li>
+      <li>Click the Cookie-Editor extension, then <b>Export &gt; JSON</b>.</li>
+      <li>Paste below and press Save. The cookies are stored only in <code>cookies.json</code> next to this app.</li>
+    </ol>
+    <textarea id="cookieBox" placeholder='[ { "name": "SAPISID", ... } ]' spellcheck="false"></textarea>
+    <div class="row"><button class="primary" id="saveCookies">Save cookies</button><span id="setupErr" class="err"></span></div>
+  </section>
+
+  <div id="app" hidden>
+    <div id="writeBanner" class="banner" hidden>Write mode is on. Buttons below change real settings on the children's devices. Each one asks for confirmation.</div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="childErr" class="card err" hidden></div>
+    <div class="grid">
+      <section class="card"><h2>Devices and limits</h2><div id="devices"></div></section>
+      <section class="card"><h2>Screen time today</h2><div id="today"></div></section>
+      <section class="card"><h2>Schedules</h2><div id="rules"></div></section>
+      <section class="card"><h2>Screen time history</h2><div id="history"></div></section>
+    </div>
+    <section class="card" style="margin-top:16px"><h2>Activity log</h2><div id="log" class="log"></div></section>
+    <details class="card"><summary>Raw data from the library</summary><pre id="raw"></pre></details>
+  </div>
+</main>
+
+<dialog id="confirm">
+  <h3 style="margin-top:0" id="cTitle">Confirm</h3>
+  <p id="cText"></p>
+  <div class="row" style="justify-content:flex-end"><button id="cNo">Cancel</button><button class="primary" id="cYes">Do it</button></div>
+</dialog>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id)
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const DAYS = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+let state = { children: [], current: null, data: null, writeEnabled: false }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: opts.body ? { 'Content-Type': 'application/json' } : undefined })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+  return j
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 3500) }
+function confirmBox(title, text) {
+  return new Promise(resolve => {
+    $('cTitle').textContent = title; $('cText').textContent = text
+    const d = $('confirm'); d.showModal()
+    const done = v => { d.close(); $('cYes').onclick = $('cNo').onclick = null; resolve(v) }
+    $('cYes').onclick = () => done(true); $('cNo').onclick = () => done(false); d.oncancel = () => resolve(false)
+  })
+}
+const fmt = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}h ${m}m` : m ? `${m}m` : `${s}s` }
+const hm = t => Array.isArray(t) ? `${String(t[0]).padStart(2, '0')}:${String(t[1]).padStart(2, '0')}` : '--:--'
+const appName = pkg => pkg.split('.').slice(-2).join('.')
+
+async function boot() {
+  const s = await api('/api/status')
+  setWrite(s.writeEnabled); renderLog(s.log)
+  if (s.demo) $('sub').textContent = 'demo data, no Google calls'
+  $('forget').hidden = s.demo
+  if (!s.hasCookies) { $('setup').hidden = false; $('app').hidden = true; return }
+  $('setup').hidden = true; $('app').hidden = false
+  try {
+    state.children = await api('/api/children')
+    if (!state.children.length) throw new Error('No supervised children on this Google account.')
+    if (!state.children.some(c => c.id === state.current)) state.current = state.children[0].id
+    renderTabs(); await loadChild()
+  } catch (e) { showChildErr(e.message); $('tabs').innerHTML = '' }
+}
+function showChildErr(msg) { const el = $('childErr'); el.hidden = !msg; el.textContent = msg || '' }
+function renderTabs() {
+  $('tabs').innerHTML = state.children.map(c => `<button role="tab" aria-selected="${c.id === state.current}" data-id="${esc(c.id)}">${esc(c.name)}</button>`).join('')
+  $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => { state.current = b.dataset.id; renderTabs(); loadChild() })
+}
+async function loadChild() {
+  showChildErr('')
+  for (const id of ['devices', 'today', 'rules', 'history']) $(id).innerHTML = '<span class="muted">Loading…</span>'
+  try {
+    state.data = await api(`/api/child/${state.current}/overview`)
+    render()
+  } catch (e) { showChildErr(e.message) }
+  refreshLog()
+}
+async function refreshLog() { try { renderLog((await api('/api/status')).log) } catch {} }
+function renderLog(log) {
+  $('log').innerHTML = log.length ? log.map(l => `<div class="${l.ok ? '' : 'bad'}">${esc(new Date(l.time).toLocaleTimeString())}  [${esc(l.kind)}]  ${esc(l.text)}</div>`).join('') : '<span class="muted">Nothing yet.</span>'
+}
+function setWrite(on) {
+  state.writeEnabled = on
+  $('writeToggle').checked = on; $('writeLabel').textContent = on ? 'Write mode ON' : 'Write mode off'
+  $('writeBanner').hidden = !on
+  document.querySelectorAll('[data-act]').forEach(b => b.disabled = !on)
+}
+const part = (key, fn) => state.data.errors[key] ? `<div class="err">Failed: ${esc(state.data.errors[key])}</div>` : fn(state.data[key])
+const dis = () => state.writeEnabled ? '' : 'disabled'
+
+function render() {
+  const d = state.data
+  $('raw').textContent = JSON.stringify(d, null, 2)
+
+  $('devices').innerHTML = part('devices', devices => {
+    if (!devices.length) return '<span class="muted">This child has no supervised device.</span>'
+    const lim = d.limits || { devices: {}, deviceLockStates: {} }
+    const anyOn = Object.values(lim.devices).some(x => x.dailyLimitEnabled)
+    return (d.errors.limits ? `<div class="err">Limits failed: ${esc(d.errors.limits)}</div>` : '') + devices.map(dev => {
+      const l = lim.devices[dev.deviceId], locked = lim.deviceLockStates[dev.deviceId]
+      return `<div class="device" data-dev="${esc(dev.deviceId)}" data-name="${esc(dev.name)}">
+        <h3>${esc(dev.name)} <span class="chip ${locked ? 'bad' : 'ok'}">${locked ? 'Locked' : 'Unlocked'}</span>
+          ${l?.bedtimeActive ? '<span class="chip warn">Bedtime now</span>' : ''}${l?.schooltimeActive ? '<span class="chip warn">School time now</span>' : ''}</h3>
+        <div class="muted">${esc(dev.model || '')}</div>
+        ${l ? `<div class="stats">
+          <div class="stat"><b>${l.usedMinutes ?? '–'}m</b><span>used today</span></div>
+          <div class="stat"><b>${l.remainingMinutes ?? '–'}m</b><span>remaining</span></div>
+          <div class="stat"><b>${l.dailyLimitEnabled ? (l.dailyLimitMinutes ?? '–') + 'm' : 'Off'}</b><span>daily limit</span></div>
+          <div class="stat"><b>${l.bonusMinutes || 0}m</b><span>bonus</span></div></div>` : '<p class="muted">No limit data for this device.</p>'}
+        <div class="row">
+          <button data-act="${locked ? 'unlock' : 'lock'}" ${dis()}>${locked ? 'Unlock' : 'Lock'} device</button>
+          <span class="muted">Bonus:</span>
+          ${[15, 30, 60].map(m => `<button data-act="addBonus" data-min="${m}" ${dis()}>+${m}m</button>`).join('')}
+          ${l?.bonusOverrideId ? `<button data-act="cancelBonus" data-ov="${esc(l.bonusOverrideId)}" class="danger" ${dis()}>Cancel bonus</button>` : ''}
+        </div>
+        <div class="row"><span class="muted">Daily limit (minutes):</span><input type="number" min="0" max="1440" value="${l?.dailyLimitMinutes ?? 60}">
+          <button data-act="setDailyLimit" ${dis()}>Set</button></div>
+      </div>`
+    }).join('') + `<div class="device row"><span class="muted">Daily limit for this child:</span>
+      <button data-act="${anyOn ? 'disableDailyLimit' : 'enableDailyLimit'}" ${dis()}>${anyOn ? 'Turn off' : 'Turn on'}</button></div>`
+  })
+
+  $('today').innerHTML = part('today', t => {
+    const apps = Object.entries(t.appBreakdown || {}).sort((a, b) => b[1] - a[1]).slice(0, 12)
+    const max = apps[0]?.[1] || 1
+    return `<div class="stats"><div class="stat"><b>${esc(t.formatted)}</b><span>total today</span></div><div class="stat"><b>${Object.keys(t.appBreakdown || {}).length}</b><span>apps used</span></div></div>` +
+      (apps.length ? `<div class="bars">${apps.map(([p, s]) => `<div class="bar"><span class="name" title="${esc(p)}">${esc(appName(p))}</span><span class="track"><span class="fill" style="width:${Math.max(2, s / max * 100)}%;display:block"></span></span><span class="val">${fmt(s)}</span></div>`).join('')}</div>` : '<span class="muted">No app usage recorded today.</span>')
+  })
+
+  $('history').innerHTML = part('history', h => {
+    const days = Object.entries(h).sort((a, b) => b[0].localeCompare(a[0]))
+    if (!days.length) return '<span class="muted">No history.</span>'
+    const max = Math.max(...days.map(x => x[1].totalSeconds), 1)
+    return `<div class="bars">${days.map(([day, s]) => `<div class="bar"><span class="name">${esc(day)}</span><span class="track"><span class="fill" style="width:${s.totalSeconds / max * 100}%;display:block"></span></span><span class="val">${fmt(s.totalSeconds)}</span></div>`).join('')}</div>`
+  })
+
+  $('rules').innerHTML = part('rules', r => {
+    const sched = (rows) => rows?.length ? `<table><tr><th>Day</th><th>Start</th><th>End</th></tr>${[...rows].sort((a, b) => a.day - b.day).map(x => `<tr><td>${DAYS[x.day] || x.day}</td><td>${hm(x.start)}</td><td>${hm(x.end)}</td></tr>`).join('')}</table>` : '<p class="muted">No schedule set.</p>'
+    return `<div class="row"><b>Bedtime</b> <span class="chip ${r.bedtimeEnabled ? 'ok' : ''}">${r.bedtimeEnabled ? 'On' : 'Off'}</span>
+        <button data-act="${r.bedtimeEnabled ? 'disableBedtime' : 'enableBedtime'}" ${dis()}>${r.bedtimeEnabled ? 'Turn off' : 'Turn on'}</button></div>
+      ${sched(r.bedtimeSchedule)}
+      <div class="row" id="bedForm"><select>${DAYS.slice(1).map((n, i) => `<option value="${i + 1}">${n}</option>`).join('')}</select>
+        <input type="time" value="21:00"><span class="muted">to</span><input type="time" value="07:00"><button data-act="setBedtime" ${dis()}>Set bedtime</button></div>
+      <div class="row" style="margin-top:18px"><b>School time</b> <span class="chip ${r.schoolTimeEnabled ? 'ok' : ''}">${r.schoolTimeEnabled ? 'On' : 'Off'}</span>
+        <button data-act="${r.schoolTimeEnabled ? 'disableSchoolTime' : 'enableSchoolTime'}" ${dis()}>${r.schoolTimeEnabled ? 'Turn off' : 'Turn on'}</button></div>
+      ${sched(r.schoolTimeSchedule)}`
+  })
+
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => act(b))
+}
+
+const LABELS = { lock: 'Lock', unlock: 'Unlock', addBonus: 'Add bonus time on', cancelBonus: 'Cancel the bonus on', setDailyLimit: 'Set the daily limit on',
+  enableDailyLimit: 'Turn the daily limit on', disableDailyLimit: 'Turn the daily limit off', enableBedtime: 'Turn bedtime on', disableBedtime: 'Turn bedtime off',
+  setBedtime: 'Change the bedtime schedule', enableSchoolTime: 'Turn school time on', disableSchoolTime: 'Turn school time off' }
+async function act(btn) {
+  const action = btn.dataset.act, devEl = btn.closest('[data-dev]')
+  const child = state.children.find(c => c.id === state.current)?.name || 'this child'
+  const p = { action }
+  let what = LABELS[action]
+  if (devEl && devEl.dataset.dev) { p.deviceId = devEl.dataset.dev; if (!action.endsWith('DailyLimit') || action === 'setDailyLimit') what += ` ${devEl.dataset.name}` }
+  if (action === 'addBonus') { p.minutes = Number(btn.dataset.min); what += ` (+${p.minutes} minutes)` }
+  if (action === 'cancelBonus') p.overrideId = btn.dataset.ov
+  if (action === 'setDailyLimit') { p.minutes = Number(btn.previousElementSibling.value); what += ` to ${p.minutes} minutes` }
+  if (action === 'setBedtime') { const [sel, a, b] = $('bedForm').querySelectorAll('select,input'); p.day = Number(sel.value); p.start = a.value; p.end = b.value; what += `: ${DAYS[p.day]} ${p.start} to ${p.end}` }
+  if (!await confirmBox('Change a real setting?', `${what} for ${child}. This takes effect on the child's device.`)) return
+  btn.disabled = true
+  try {
+    const r = await api(`/api/child/${state.current}/action`, { method: 'POST', body: JSON.stringify(p) })
+    toast(r.ok ? 'Done. Reloading…' : 'The library reported the change did not apply.')
+  } catch (e) { toast('Failed: ' + e.message) }
+  await loadChild()
+}
+
+$('writeToggle').onchange = async e => {
+  const want = e.target.checked
+  if (want && !await confirmBox('Turn write mode on?', 'Buttons will then change real Family Link settings. Each action still asks before it runs.')) { e.target.checked = false; return }
+  try { setWrite((await api('/api/write-mode', { method: 'POST', body: JSON.stringify({ enabled: want }) })).writeEnabled) } catch (err) { toast(err.message); e.target.checked = !want }
+  refreshLog()
+}
+$('refresh').onclick = () => boot().catch(e => toast(e.message))
+$('forget').onclick = async () => {
+  if (!await confirmBox('Delete cookies?', 'Removes cookies.json from this computer. You will need to export them again to keep testing.')) return
+  await api('/api/cookies', { method: 'DELETE' }); boot()
+}
+$('saveCookies').onclick = async () => {
+  $('setupErr').textContent = ''
+  try {
+    const cookies = JSON.parse($('cookieBox').value)
+    await api('/api/cookies', { method: 'POST', body: JSON.stringify({ cookies }) })
+    $('cookieBox').value = ''; boot()
+  } catch (e) { $('setupErr').textContent = e instanceof SyntaxError ? 'That is not valid JSON. Use Export > JSON in Cookie-Editor.' : e.message }
+}
+boot().catch(e => showChildErr(e.message))
+</script>
+</body>
+</html>

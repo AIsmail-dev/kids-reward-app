@@ -19,6 +19,7 @@
     "@simplewebauthn/browser": "^13.2.2",
     "@simplewebauthn/server": "^13.2.3",
     "@supabase/supabase-js": "^2.97.0",
+    "g-family-link": "1.1.0",
     "jsonwebtoken": "^9.0.3",
     "otpauth": "^9.5.0",
     "otplib": "^13.3.0",
