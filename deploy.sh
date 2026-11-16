@@ -63,6 +63,7 @@ docker run -d --name kids-web --network kids-prod --restart unless-stopped \
   -e SUPABASE_SERVICE_ROLE_KEY -e SUPABASE_JWT_SECRET \
   -v kids-familylink:/data -e FAMILYLINK_DATA_DIR=/data -e FAMILYLINK_AUTH_USER \
   -e PSN_SERVICE_URL=http://kids-psn:8090 \
+  -e LEARNHUB_HMAC_SECRET -e LEARNHUB_DAILY_MAX_POINTS -e LEARNHUB_MAX_POINTS_PER_EVENT \
   kids-web:latest >/dev/null
 
 # Scheduled jobs (daily tasks, prayer reminders) call kids-web from inside the database.

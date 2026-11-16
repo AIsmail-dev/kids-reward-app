@@ -110,7 +110,7 @@ export default function KidsTab({ user, notify, refreshKey }) {
         setHistoryFor(kidId);
         const { data: tx } = await supabase
             .from('wallet_transactions')
-            .select('id, amount, type, created_at, occurrence_id, request_id')
+            .select('id, amount, type, created_at, occurrence_id, request_id, source, note')
             .eq('kid_id', kidId)
             .eq('wallet', 'points')
             .order('created_at', { ascending: false })
@@ -127,6 +127,7 @@ export default function KidsTab({ user, notify, refreshKey }) {
         setHistory((tx || []).map(t => ({
             ...t,
             label: occTitle[t.occurrence_id] || reqLabel[t.request_id]
+                || (t.source === 'learning-hub' ? `📚 ${t.note || 'Learning Hub'}` : null)
                 || (t.type === 'convert' ? 'Moved from old wallets' : t.type === 'reward' ? 'Task reward' : 'Spent'),
         })));
     }
