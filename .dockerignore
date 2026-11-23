@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+supabase
+reference
+temp_scripts
+sql
+docker
+# No env files: the cloud .env must not leak into the build, and secrets stay out of the image.
+.env
+.env.*
+.familylink

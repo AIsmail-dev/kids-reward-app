@@ -5,6 +5,14 @@ const VAPID_PUBLIC = "BFEfkz9ji2VeaQDjPghfCZT3tju-6DYv6kMsjsaJ-NfpblzuKRxrT4YJM8
 const VAPID_PRIVATE = "RQVngakZXhAppFQT__CGx7zNEK--0LwMb0icMJbmunA";
 webpush.setVapidDetails('mailto:admin@kidsrewards.app', VAPID_PUBLIC, VAPID_PRIVATE);
 
+// High urgency so Android delivers while the phone is dozing; a reminder is stale after 30 minutes
+// (the next one follows).
+const PUSH_OPTIONS = { urgency: 'high', TTL: 1800 };
+
+// Arabic spelling of each kid's name, keyed by users.name lowercased, for the notification text.
+// The same slug picks the Android app's spoken clip for that kid (scripts/gen-kid-prayer-clips.sh).
+const KID_NAMES_AR = { yahia: 'يحيى', farida: 'فريدة' };
+
 export default async function handler(req, res) {
     if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -18,15 +26,19 @@ export default async function handler(req, res) {
     }
     const supabase = createClient(SUPA_URL, SERVICE_KEY);
 
-    // Get current Riyadh time in HH:MM Format 24hr
-    const nowRiyadh = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));
-    const h = nowRiyadh.getHours();
-    const m = nowRiyadh.getMinutes();
+    // The current Riyadh date and minute, whatever the server's own time zone.
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+    const h = Number(parts.hour);
+    const m = Number(parts.minute);
     const currentTotalMinutes = h * 60 + m;
-    const todayDate = nowRiyadh.toISOString().split('T')[0];
+    const todayDate = `${parts.year}-${parts.month}-${parts.day}`;
 
     try {
-        const aladhanRes = await fetch(`https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=Saudi%20Arabia&method=4`);
+        // Today's Umm al-Qura times for Riyadh, asked for by date so they're never another day's.
+        const aladhanRes = await fetch(`https://api.aladhan.com/v1/timingsByCity/${parts.day}-${parts.month}-${parts.year}?city=Riyadh&country=Saudi%20Arabia&method=4`);
         if (!aladhanRes.ok) return res.status(500).json({ error: "Failed to fetch prayer times" });
         const data = await aladhanRes.json();
         const timings = data.data.timings;
@@ -47,15 +59,10 @@ export default async function handler(req, res) {
             const [pHour, pMin] = t.split(':').map(Number);
             const prayerTotalMinutes = pHour * 60 + pMin;
 
-            let diff = currentTotalMinutes - prayerTotalMinutes;
-
-            // If the time is later in the current day, diff will be negative
-            if (diff >= 0 && diff % 30 === 0 && diff < 1440) {
-                activePrayers.push({
-                    name: p,
-                    isReminder: diff > 0, // 0 = exactly time, 30+ = reminder
-                    config: prayerKeys[p]
-                });
+            // One notification per prayer, at its time. (There used to be a reminder every 30 minutes
+            // after it while the task was pending, which kept going all day.)
+            if (currentTotalMinutes === prayerTotalMinutes) {
+                activePrayers.push({ name: p, isReminder: false, config: prayerKeys[p] });
             }
         }
 
@@ -78,7 +85,10 @@ export default async function handler(req, res) {
 
         const kidIds = [...new Set(occurrences.map(o => o.kid_id))];
         const { data: subs } = await supabase.from('push_subscriptions').select('subscription, user_id').in('user_id', kidIds);
+        const { data: kids } = await supabase.from('users').select('id, name').in('id', kidIds);
+        const kidSlugs = Object.fromEntries((kids || []).map(k => [k.id, (k.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')]));
 
+        const notified = new Set(); // kid + prayer: one notification even if two tasks match
         occurrences.forEach(occ => {
             const title = (occ.tasks.title || "").toLowerCase();
 
@@ -87,25 +97,29 @@ export default async function handler(req, res) {
                 ap.config.keywords.some(k => title.includes(k))
             );
 
-            if (matchedPrayer) {
+            if (matchedPrayer && !notified.has(`${occ.kid_id}:${matchedPrayer.name}`)) {
+                notified.add(`${occ.kid_id}:${matchedPrayer.name}`);
                 const kidSubs = (subs || []).filter(s => s.user_id === occ.kid_id);
                 const soundFile = `/${matchedPrayer.config.soundBase}_${matchedPrayer.isReminder ? 'remind' : 'now'}.mp3`;
 
                 const titleText = matchedPrayer.isReminder ? 'تذكير بالصلاة! 📿' : 'حان وقت الصلاة! 🕌';
-                const bodyText = matchedPrayer.isReminder
+                const kidSlug = kidSlugs[occ.kid_id] || '';
+                const greeting = KID_NAMES_AR[kidSlug] ? `يا ${KID_NAMES_AR[kidSlug]}، ` : '';
+                const bodyText = greeting + (matchedPrayer.isReminder
                     ? `لا تنسى صلاة ${matchedPrayer.config.keywords[0]}! هيا اكسب مكافأتك.`
-                    : `حان الآن وقت صلاة ${matchedPrayer.config.keywords[0]}!`;
+                    : `حان الآن وقت صلاة ${matchedPrayer.config.keywords[0]}!`);
 
                 const payload = JSON.stringify({
                     title: titleText,
                     body: bodyText,
                     url: '/',
                     type: 'notify_kid',
-                    customSound: soundFile
+                    customSound: soundFile,
+                    kid: kidSlug
                 });
 
                 kidSubs.forEach(s => {
-                    promises.push(webpush.sendNotification(s.subscription, payload).catch(e => console.error(e)));
+                    promises.push(webpush.sendNotification(s.subscription, payload, PUSH_OPTIONS).catch(e => console.error(e)));
                     notificationsSent++;
                 });
             }

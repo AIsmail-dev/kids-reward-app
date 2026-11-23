@@ -30,7 +30,8 @@ FROM anon;
 -- grant so `select('*')` fails loudly instead of ever being able to
 -- return the pin column to the browser.
 REVOKE SELECT ON public.users FROM authenticated;
-GRANT SELECT (id, name, role, created_at) ON public.users TO authenticated;
+-- No created_at: the cloud production users table never had that column.
+GRANT SELECT (id, name, role) ON public.users TO authenticated;
 
 CREATE POLICY "users_select_parent_all_or_self" ON public.users
   FOR SELECT TO authenticated

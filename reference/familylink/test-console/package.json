@@ -1,0 +1,10 @@
+{
+  "name": "familylink-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local test console for the unofficial g-family-link library",
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "demo": "DEMO=1 node server.mjs" },
+  "dependencies": { "g-family-link": "^1.1.0" },
+  "engines": { "node": ">=18" }
+}

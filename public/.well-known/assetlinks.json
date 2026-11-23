@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.ahmed.kidsrewards",
+    "sha256_cert_fingerprints": ["99:FC:13:A4:09:23:FD:CF:C0:93:69:75:DC:B7:7C:EC:FA:0A:D5:11:88:ED:A1:56:D5:58:2B:36:BD:78:75:AE"]
+  }
+}]

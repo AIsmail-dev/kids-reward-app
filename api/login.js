@@ -2,10 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const { name, pin } = req.body || {};
-    if (!name || !pin) return res.status(400).json({ error: 'name and pin are required' });
+    if (req.method === 'POST' && (!name || !pin)) return res.status(400).json({ error: 'name and pin are required' });
 
     const SUPA_URL = process.env.VITE_SUPABASE_URL;
     const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,6 +16,13 @@ export default async function handler(req, res) {
     }
 
     const admin = createClient(SUPA_URL, SERVICE_KEY);
+
+    // GET: the names on the login screen (no PINs), so a new family member shows up without a code change.
+    if (req.method === 'GET') {
+        const { data, error } = await admin.from('users').select('name, role').order('name');
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json(data);
+    }
 
     const { data: user, error } = await admin
         .from('users')

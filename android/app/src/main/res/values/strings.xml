@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kids Rewards</string>
+    <!-- The production server on the home Mac, through Tailscale Funnel (HTTPS works at home and away). -->
+    <string name="host">ahmeds-macbook-pro.tail712747.ts.net</string>
+    <string name="launch_url">https://ahmeds-macbook-pro.tail712747.ts.net/</string>
+    <string name="asset_statements" translatable="false">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://ahmeds-macbook-pro.tail712747.ts.net\" } }]</string>
+</resources>

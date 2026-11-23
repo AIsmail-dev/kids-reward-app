@@ -1,33 +1,21 @@
 import React from "react"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Splash from "./pages/Splash"
 import KidDashboard from "./pages/KidDashboard"
 import ParentDashboard from "./pages/ParentDashboard"
 import Login from "./pages/Login"
 
-import AdminLayout from "./admin/AdminLayout"
-import AdminTasks from "./admin/AdminTasks"
-import AdminSettings from "./admin/AdminSettings"
-import AdminOccurrences from "./admin/AdminOccurrences"
-import AdminKids from "./admin/AdminKids"
-
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-
                 <Route path="/" element={<Splash />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/kid" element={<KidDashboard />} />
                 <Route path="/parent" element={<ParentDashboard />} />
-
-                <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminTasks />} />
-                    <Route path="settings" element={<AdminSettings />} />
-                    <Route path="occurrences" element={<AdminOccurrences />} />
-                    <Route path="kids" element={<AdminKids />} />
-                </Route>
-
+                {/* The old admin area is now tabs on the parent screen */}
+                <Route path="/admin/*" element={<Navigate to="/parent" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
     )
