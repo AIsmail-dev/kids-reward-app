@@ -123,10 +123,14 @@ export default function KidsTab({ user, notify, refreshKey }) {
         ]);
         const occTitle = Object.fromEntries((occ || []).map(o => [o.id, o.tasks?.title?.replace(EXCEPTIONAL, '')]));
         const reqLabel = Object.fromEntries((reqs || []).map(r => [r.id,
-            r.wallet === 'screen_time' ? `⏰ ${r.amount} min screen time` : `💰 ${r.amount} → ${r.money_destinations?.name}`]));
+            r.wallet === 'screen_time' ? `⏰ ${r.amount} min screen time`
+                : r.wallet === 'playstation_time' ? `🎮 ${r.amount} min PlayStation`
+                    : `💰 ${r.amount} → ${r.money_destinations?.name}`]));
         setHistory((tx || []).map(t => ({
             ...t,
-            label: occTitle[t.occurrence_id] || reqLabel[t.request_id]
+            label: occTitle[t.occurrence_id]
+                // A positive row on a request is a refund (ApproveTab.refundRequest); a negative one is the spend.
+                || (t.request_id && reqLabel[t.request_id] && Number(t.amount) > 0 ? `↩️ Refund: ${reqLabel[t.request_id]}` : reqLabel[t.request_id])
                 || (t.source === 'learning-hub' ? `📚 ${t.note || 'Learning Hub'}` : null)
                 || (t.type === 'convert' ? 'Moved from old wallets' : t.type === 'reward' ? 'Task reward' : 'Spent'),
         })));

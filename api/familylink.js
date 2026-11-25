@@ -188,7 +188,7 @@ async function start(supabase, requestId, actor) {
             .eq('id', requestId);
         await push({
             title: 'Screen time did not start ⏰',
-            message: `${kidName}'s ${what} couldn't be added on Family Link: ${message}`,
+            message: `${kidName}'s ${what} couldn't be added on Family Link: ${message.replace(/\.$/, '')}. Retry it or give the points back in Approve.`,
             targetRole: 'parent',
             url: '/parent',
             type: 'notify_parent',

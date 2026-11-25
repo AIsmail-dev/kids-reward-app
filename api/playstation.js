@@ -128,7 +128,7 @@ async function grant(supabase, requestId, actor) {
             .eq('id', requestId);
         await push({
             title: 'PlayStation time not added 🎮',
-            message: `${kidName}'s ${request.amount} minutes couldn't be added: ${message}`,
+            message: `${kidName}'s ${request.amount} minutes couldn't be added: ${message.replace(/\.$/, '')}. Retry it or give the points back in Approve.`,
             targetRole: 'parent',
             url: '/parent',
             type: 'notify_parent',
