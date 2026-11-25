@@ -196,6 +196,50 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
         load();
     }
 
+    // Gives the points back for an approved request whose real-world action never happened (for
+    // example PlayStation or Family Link refused the time). Only a request that is still 'approved'
+    // and not mid-grant can be claimed, so this can't refund twice or race a grant that is running.
+    async function refundRequest(r) {
+        if (!window.confirm(`Cancel ${names[r.kid_id]}'s ${describe(r)} and give back ${r.points_cost} ⭐?`)) return;
+        setBusy(r.id);
+        const grantColumn = { screen_time: 'familylink_status', playstation_time: 'playstation_status' }[r.wallet];
+        let claim = supabase
+            .from('wallet_requests')
+            .update({ status: 'rejected' })
+            .eq('id', r.id)
+            .eq('status', 'approved');
+        if (grantColumn) claim = claim.or(`${grantColumn}.is.null,${grantColumn}.neq.granting`);
+        const { data: claimed, error: claimError } = await claim.select('id');
+
+        if (claimError || !claimed?.length) {
+            notify(claimError?.message || "This can't be refunded right now: the time may be being added. Try again in a moment.", 'error');
+        } else {
+            const { error } = await supabase.from('wallet_transactions').insert({
+                kid_id: r.kid_id,
+                wallet: 'points',
+                amount: Number(r.points_cost),
+                type: 'reward',
+                request_id: r.id,
+            });
+            if (error) {
+                // Put the request back so the points aren't lost and the parent can try again.
+                await supabase.from('wallet_requests').update({ status: 'approved' }).eq('id', r.id).eq('status', 'rejected');
+                notify(`Couldn't give the points back: ${error.message}`, 'error');
+            } else {
+                sendNotification({
+                    title: 'Points returned ↩️',
+                    message: `Your ${describe(r)} couldn't be given, so your ${r.points_cost} ⭐ are back.`,
+                    targetKidId: r.kid_id,
+                    url: '/kid',
+                    type: 'notify_kid'
+                });
+                notify(`Gave ${names[r.kid_id]} back ${r.points_cost} ⭐ ↩️`);
+            }
+        }
+        setBusy(null);
+        load();
+    }
+
     async function markGiven(r) {
         setBusy(r.id);
         await supabase
@@ -334,6 +378,14 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                                     {r.wallet === 'money' ? 'Done, I gave it ✓' : 'I did it myself ✓'}
                                 </button>
                             </div>
+                            <button
+                                className="button button-ghost button-small"
+                                style={{ width: "100%", marginTop: 8 }}
+                                disabled={busy === r.id || r.familylink_status === 'granting' || r.playstation_status === 'granting'}
+                                onClick={() => refundRequest(r)}
+                            >
+                                Cancel &amp; give back {r.points_cost} ⭐
+                            </button>
                         </div>
                     ))}
                 </>
