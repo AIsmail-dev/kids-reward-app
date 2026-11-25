@@ -18,6 +18,7 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
     const [toDo, setToDo] = useState([]);
     const [unit, setUnit] = useState("");
     const [busy, setBusy] = useState(null);
+    const [confirmRefund, setConfirmRefund] = useState(null);
 
     useEffect(() => {
         load();
@@ -200,7 +201,7 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
     // example PlayStation or Family Link refused the time). Only a request that is still 'approved'
     // and not mid-grant can be claimed, so this can't refund twice or race a grant that is running.
     async function refundRequest(r) {
-        if (!window.confirm(`Cancel ${names[r.kid_id]}'s ${describe(r)} and give back ${r.points_cost} ⭐?`)) return;
+        setConfirmRefund(null);
         setBusy(r.id);
         const grantColumn = { screen_time: 'familylink_status', playstation_time: 'playstation_status' }[r.wallet];
         let claim = supabase
@@ -378,14 +379,22 @@ export default function ApproveTab({ user, notify, onCount, refreshKey }) {
                                     {r.wallet === 'money' ? 'Done, I gave it ✓' : 'I did it myself ✓'}
                                 </button>
                             </div>
-                            <button
-                                className="button button-ghost button-small"
-                                style={{ width: "100%", marginTop: 8 }}
-                                disabled={busy === r.id || r.familylink_status === 'granting' || r.playstation_status === 'granting'}
-                                onClick={() => refundRequest(r)}
-                            >
-                                Cancel &amp; give back {r.points_cost} ⭐
-                            </button>
+                            {confirmRefund === r.id ? (
+                                <div className="row" style={{ marginTop: 8 }}>
+                                    <span className="muted">Cancel and give back {r.points_cost} ⭐?</span>
+                                    <button className="button button-small" disabled={busy === r.id} onClick={() => refundRequest(r)}>Give back</button>
+                                    <button className="button button-ghost button-small" onClick={() => setConfirmRefund(null)}>Keep</button>
+                                </div>
+                            ) : (
+                                <button
+                                    className="button button-ghost button-small"
+                                    style={{ width: "100%", marginTop: 8 }}
+                                    disabled={busy === r.id || r.familylink_status === 'granting' || r.playstation_status === 'granting'}
+                                    onClick={() => setConfirmRefund(r.id)}
+                                >
+                                    Cancel &amp; give back {r.points_cost} ⭐
+                                </button>
+                            )}
                         </div>
                     ))}
                 </>
